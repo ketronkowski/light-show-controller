@@ -88,7 +88,11 @@ let currentView = localStorage.getItem(VIEW_STORAGE_KEY) === 'list' ? 'list' : '
 // Set Look dialog state (see the Set Look section below).
 const lookEls = {};
 let lookCatalog = null;   // LookCatalog from api/look/catalog
-let lookState = null;     // Look being edited: { on, bri, fx, sx, ix, c1, c2, c3, o1, o2, o3, pal, col }
+let lookState = null;     // Look being edited (lookMain or lookFlood): { on, bri, fx, sx, ix, c1, c2, c3, o1, o2, o3, pal, col }
+let lookMain = null;      // look for every non-floodlight segment; also holds power and brightness
+let lookFlood = null;     // floodlights' own look (its on/bri are unused)
+let lookFloodSame = true; // floodlights take lookMain instead of lookFlood
+let lookTab = 'main';     // 'main' | 'flood': which look the effect/color controls edit
 let lookTargets = [];     // [{ name, ip }]
 let lookSlot = 0;         // active color slot
 let lookPowerMixed = false; // selected controllers disagree on power
@@ -945,13 +949,17 @@ function initLookModal() {
   ['lookModal', 'lookTargets', 'lookNotice', 'lookLoading', 'lookBody', 'lookOn', 'lookOnLabel', 'lookBri',
     'lookBriVal', 'lookPowerStatus', 'lookFxSearch', 'lookFxList', 'lookOpts', 'lookColors', 'lookSlots', 'lookColor',
     'lookSwatches', 'lookColorsUnused', 'lookPalLabel', 'lookPalWrap', 'lookPalSearch', 'lookPalList',
-    'lookPalUnused', 'lookRefreshBtn', 'lookCloseBtn', 'lookApplyBtn'].forEach(id => { lookEls[id] = document.getElementById(id); });
+    'lookPalUnused', 'lookRefreshBtn', 'lookCloseBtn', 'lookApplyBtn', 'lookTabs', 'lookTabMain', 'lookTabFlood',
+    'lookFloodSameRow', 'lookFloodSame', 'lookFloodNames', 'lookEditor'].forEach(id => { lookEls[id] = document.getElementById(id); });
 
   lookEls.lookCloseBtn.addEventListener('click', () => { lookEls.lookModal.hidden = true; });
   lookEls.lookRefreshBtn.addEventListener('click', () => loadLookCatalog(true));
   lookEls.lookApplyBtn.addEventListener('click', applyLook);
   lookEls.lookOn.addEventListener('change', () => setLookPower(lookEls.lookOn.checked));
-  lookEls.lookBri.addEventListener('input', () => { lookState.bri = Number(lookEls.lookBri.value); renderLookPower(); });
+  lookEls.lookBri.addEventListener('input', () => { lookMain.bri = Number(lookEls.lookBri.value); renderLookPower(); });
+  lookEls.lookTabMain.addEventListener('click', () => setLookTab('main'));
+  lookEls.lookTabFlood.addEventListener('click', () => setLookTab('flood'));
+  lookEls.lookFloodSame.addEventListener('change', () => { lookFloodSame = lookEls.lookFloodSame.checked; renderLook(); });
   lookEls.lookFxSearch.addEventListener('input', renderLookEffects);
   lookEls.lookPalSearch.addEventListener('input', renderLookPalettes);
   lookEls.lookColor.addEventListener('input', () => setLookColor(hexToRgb(lookEls.lookColor.value)));
@@ -1022,12 +1030,22 @@ async function loadLookCatalog(refresh) {
     return;
   }
   // Keep edits across a Refresh; otherwise start from what the first controller shows now.
-  const base = (refresh && lookState) ? lookState : (lookCatalog.current || {});
-  lookState = normalizeLook(base);
+  const keep = refresh && lookMain;
+  lookMain = normalizeLook(keep ? lookMain : (lookCatalog.current || {}));
+  // Floodlights start from what they show now, and "same as the other lights" when that's what they show.
+  if (keep && lookFlood) {
+    lookFlood = normalizeLook(lookFlood);
+  } else {
+    lookFlood = normalizeLook(lookCatalog.currentFlood || lookMain);
+    lookFloodSame = !lookCatalog.currentFlood || sameLook(lookFlood, lookMain);
+    lookTab = 'main';
+  }
+  if (!lookHasFloods()) lookTab = 'main';
+  lookState = lookTab === 'flood' ? lookFlood : lookMain;
   // The power switch is live, so it always shows what the controllers are doing now.
   const powered = lookTargets.map(t => (lookCatalog.powered || {})[t.ip]).filter(v => v !== undefined);
   lookPowerMixed = powered.some(Boolean) && !powered.every(Boolean);
-  lookState.on = powered.length > 0 && powered.every(Boolean);
+  lookMain.on = powered.length > 0 && powered.every(Boolean);
   lookEls.lookPowerStatus.textContent = '';
   lookEls.lookPowerStatus.classList.remove('err');
   lookSlot = 0;
@@ -1047,6 +1065,48 @@ function normalizeLook(l) {
     sx: l.sx ?? 128, ix: l.ix ?? 128, c1: l.c1 ?? 128, c2: l.c2 ?? 128, c3: l.c3 ?? 16,
     o1: !!l.o1, o2: !!l.o2, o3: !!l.o3, pal, col,
   };
+}
+
+// Same effect, options, colors and palette (power and brightness aside).
+function sameLook(a, b) {
+  const strip = l => JSON.stringify({ ...l, on: null, bri: null });
+  return strip(a) === strip(b);
+}
+
+// Floodlight segment names on the selected controllers ("Octa5: front-floods").
+function lookFloodNames() {
+  const fl = lookCatalog.floodlights || {};
+  return lookTargets.flatMap(t => (fl[t.ip] || []).map(n => lookTargets.length > 1 ? `${t.name}: ${n}` : n));
+}
+
+function lookHasFloods() { return lookFloodNames().length > 0; }
+
+function setLookTab(tab) {
+  if (tab === lookTab) return;
+  lookTab = tab;
+  lookState = tab === 'flood' ? lookFlood : lookMain;
+  lookSlot = 0;
+  lookEls.lookFxSearch.value = '';
+  lookEls.lookPalSearch.value = '';
+  renderLook();
+}
+
+// The Other lights / Floodlights tabs only show when a selected controller has floodlights.
+function renderLookTabs() {
+  const floods = lookFloodNames();
+  lookEls.lookTabs.hidden = floods.length === 0;
+  [['main', lookEls.lookTabMain], ['flood', lookEls.lookTabFlood]].forEach(([tab, b]) => {
+    b.classList.toggle('active', lookTab === tab);
+    b.setAttribute('aria-selected', String(lookTab === tab));
+  });
+  const chip = lookFloodSame ? '' :
+    `<span class="look-tab-chip" style="background:${rgbToHex(lookFlood.col[0])}"></span>`;
+  lookEls.lookTabFlood.innerHTML = `Floodlights${lookFloodSame ? ' (same)' : `: ${escapeHtml(lookFlood.fx)}`}${chip}`;
+  const onFlood = lookTab === 'flood' && floods.length > 0;
+  lookEls.lookFloodSameRow.hidden = !onFlood;
+  lookEls.lookFloodSame.checked = lookFloodSame;
+  lookEls.lookFloodNames.textContent = onFlood ? floods.join(', ') : '';
+  lookEls.lookEditor.hidden = onFlood && lookFloodSame;
 }
 
 function renderLookNotice() {
@@ -1073,6 +1133,7 @@ function currentEffect() {
 
 function renderLook() {
   renderLookPower();
+  renderLookTabs();
   renderLookEffects();
   renderLookOptions();
   renderLookColors();
@@ -1080,12 +1141,12 @@ function renderLook() {
 }
 
 function renderLookPower() {
-  lookEls.lookOn.checked = lookState.on;
+  lookEls.lookOn.checked = lookMain.on;
   lookEls.lookOn.indeterminate = lookPowerMixed;
-  lookEls.lookOnLabel.textContent = lookPowerMixed ? 'Some on, some off' : (lookState.on ? 'On' : 'Off');
-  lookEls.lookBri.value = lookState.bri;
-  lookEls.lookBriVal.textContent = lookState.bri;
-  lookEls.lookBri.disabled = !lookState.on;
+  lookEls.lookOnLabel.textContent = lookPowerMixed ? 'Some on, some off' : (lookMain.on ? 'On' : 'Off');
+  lookEls.lookBri.value = lookMain.bri;
+  lookEls.lookBriVal.textContent = lookMain.bri;
+  lookEls.lookBri.disabled = !lookMain.on;
 }
 
 // The power switch acts right away on every selected controller, without Apply.
@@ -1107,7 +1168,7 @@ async function setLookPower(on) {
     const ok = outcomes.length - failed.length;
     // Show what actually happened: if nothing switched, the switch stays where it was.
     lookPowerMixed = ok > 0 && failed.length > 0;
-    if (ok > 0) lookState.on = on;
+    if (ok > 0) lookMain.on = on;
     if (failed.length) {
       status.classList.add('err');
       status.textContent = `${ok}/${outcomes.length} turned ${on ? 'on' : 'off'}; failed: ` +
@@ -1229,6 +1290,7 @@ function renderLookColors() {
 function setLookColor(rgb) {
   lookState.col[lookSlot] = rgb;
   renderLookColors();
+  renderLookTabs();
 }
 
 function renderLookPalettes() {
@@ -1251,15 +1313,19 @@ function renderLookPalettes() {
 }
 
 function applyLook() {
-  const look = { ...lookState, col: lookState.col.map(c => c.slice()) };
+  const copy = l => ({ ...l, col: l.col.map(c => c.slice()) });
+  const look = copy(lookMain);
+  // null = floodlights get the same look as everything else
+  const flood = (lookHasFloods() && !lookFloodSame) ? copy(lookFlood) : null;
   const targets = lookTargets.slice();
+  const what = flood ? `${look.fx}, floodlights ${flood.fx}` : look.fx;
   runAtomicBulk({
-    title: look.on ? `Setting Look: ${look.fx}` : `Setting Look: ${look.fx} (power off)`,
+    title: look.on ? `Setting Look: ${what}` : `Setting Look: ${what} (power off)`,
     request: async () => {
       const res = await fetch('api/look/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ controllers: targets, look }),
+        body: JSON.stringify({ controllers: targets, look, flood }),
       });
       if (!res.ok) throw new Error(String(res.status));
       return res.json();

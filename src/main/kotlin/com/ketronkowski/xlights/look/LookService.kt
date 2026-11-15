@@ -5,6 +5,7 @@ import com.ketronkowski.xlights.domain.SegmentStatus
 import com.ketronkowski.xlights.validation.ValidationService
 import com.ketronkowski.xlights.wled.WledApiClient
 import com.ketronkowski.xlights.wled.dto.WledInfoResponse
+import com.ketronkowski.xlights.wled.dto.WledSegmentDto
 import com.ketronkowski.xlights.wled.dto.WledStateResponse
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -69,7 +70,15 @@ class LookService(
         val catalogs = reachable.map { it.catalog!! }
         val effects = commonEffects(catalogs)
         val palettes = commonPalettes(catalogs)
-        val current = currentLook(first.state!!, first.catalog!!, effects.map { it.name }.toSet(), palettes.toSet())
+        val effectNames = effects.map { it.name }.toSet()
+        val paletteSet = palettes.toSet()
+        val current = currentLook(first.state!!, first.catalog!!, effectNames, paletteSet)
+        val floodlights = reachable.associate { r -> r.ip to r.state!!.seg.mapNotNull { it.name }.filter(::isFloodlight) }
+            .filterValues { it.isNotEmpty() }
+        val currentFlood = reachable.firstNotNullOfOrNull { r ->
+            r.state!!.seg.firstOrNull { isFloodlight(it.name) }
+                ?.let { segmentLook(r.state, it, r.catalog!!, effectNames, paletteSet) }
+        }
 
         return LookCatalog(
             effects     = effects,
@@ -79,12 +88,15 @@ class LookService(
             powered     = reachable.associate { it.ip to (it.state?.on ?: false) },
             differing   = differingLooks(reachable.map { Triple(it.ip, it.state!!, it.catalog!!) }),
             unreachable = unreachable,
+            floodlights = floodlights,
+            currentFlood = currentFlood,
         )
     }
 
     /**
      * Which controllers aren't showing the same look as the first one. Compared by
-     * name in each controller's own lists, ignoring power and brightness.
+     * name in each controller's own lists, ignoring power and brightness. Floodlights
+     * are left out of the comparison, since they can have a look of their own.
      */
     internal fun differingLooks(controllers: List<Triple<String, WledStateResponse, ControllerCatalog>>): Map<String, String> {
         val looks = controllers.map { (ip, state, cat) ->
@@ -130,8 +142,22 @@ class LookService(
         effectNames: Set<String>,
         paletteNames: Set<String>,
     ): Look {
-        val seg = state.seg.find { it.id == state.mainseg } ?: state.seg.firstOrNull()
+        // The main segment, unless it's a floodlight: those can have a look of their own.
+        val seg = state.seg.find { it.id == state.mainseg && !isFloodlight(it.name) }
+            ?: state.seg.firstOrNull { it.on && !isFloodlight(it.name) }
+            ?: state.seg.firstOrNull { !isFloodlight(it.name) }
+            ?: state.seg.firstOrNull()
             ?: return Look(on = state.on, bri = state.bri)
+        return segmentLook(state, seg, cat, effectNames, paletteNames)
+    }
+
+    private fun segmentLook(
+        state: WledStateResponse,
+        seg: WledSegmentDto,
+        cat: ControllerCatalog,
+        effectNames: Set<String>,
+        paletteNames: Set<String>,
+    ): Look {
         val fx = cat.effects.getOrNull(seg.fx)?.takeIf { it in effectNames } ?: "Solid"
         val pal = cat.palettes.getOrNull(seg.pal)?.takeIf { it in paletteNames } ?: (cat.palettes.firstOrNull() ?: "Default")
         return Look(
@@ -160,7 +186,7 @@ class LookService(
                         cv ?: error("not a WLED controller in the uploaded xLights config")
                         notReadyReason(cv)?.let { error(it) }
                         val ip = cv.wledDevice!!.ipAddress
-                        Prepared(target.name, ip, buildBody(cv, controllerCatalog(ip), req.look), null)
+                        Prepared(target.name, ip, buildBody(cv, controllerCatalog(ip), req.look, req.flood), null)
                     } catch (e: Exception) {
                         Prepared(target.name, cv?.wledDevice?.ipAddress ?: target.ip, null, e.message ?: e.javaClass.simpleName)
                     }
@@ -229,31 +255,28 @@ class LookService(
      * xLights model get the whole look; every other segment is turned off. Every segment
      * is listed with its `id`, because WLED applies an id-less array entry by position.
      * Power off still sets the effect and colors, so they're there when the lights come on.
+     * With a [flood] look, floodlight models (see [isFloodlight]) get that one instead.
      */
-    internal fun buildBody(cv: ControllerValidation, cat: ControllerCatalog, look: Look): Map<String, Any?> {
+    internal fun buildBody(cv: ControllerValidation, cat: ControllerCatalog, look: Look, flood: Look? = null): Map<String, Any?> {
         val noSync = mapOf("nn" to true)   // don't let UDP sync re-broadcast to unselected controllers
         val device = cv.wledDevice ?: error("controller is not reachable")
-        val fx = cat.effects.indexOf(look.fx).takeIf { it >= 0 }
-            ?: error("effect '${look.fx}' is not on this controller")
-        val pal = cat.palettes.indexOf(look.pal).takeIf { it >= 0 }
-            ?: error("palette '${look.pal}' is not on this controller")
 
-        val lookSegmentIds = cv.segmentValidations
+        // segment id → the xLights model it shows, for non-null models only
+        val lookModels = cv.segmentValidations
             .filter { !it.model.isNull }
-            .mapNotNull { it.actualSegment?.id }
-            .toSet()
-        val colors = sanitizeColors(look.col)
+            .mapNotNull { sv -> sv.actualSegment?.id?.let { it to sv.model.name } }
+            .toMap()
+        val usesFlood = flood != null && lookModels.values.any(::isFloodlight)
+        val main = segmentFields(cat, look)
+        val floodFields = if (usesFlood) segmentFields(cat, flood!!) else main
 
         val segments = device.segments.sortedBy { it.id }.map { seg ->
-            if (seg.id in lookSegmentIds) linkedMapOf(
-                "id" to seg.id, "on" to true, "frz" to false,
-                "fx" to fx,
-                "sx" to look.sx.coerceIn(0, 255), "ix" to look.ix.coerceIn(0, 255),
-                "c1" to look.c1.coerceIn(0, 255), "c2" to look.c2.coerceIn(0, 255), "c3" to look.c3.coerceIn(0, 31),
-                "o1" to look.o1, "o2" to look.o2, "o3" to look.o3,
-                "pal" to pal,
-                "col" to colors,
-            ) else linkedMapOf("id" to seg.id, "on" to false)
+            val model = lookModels[seg.id]
+            when {
+                model == null -> linkedMapOf("id" to seg.id, "on" to false)
+                else -> linkedMapOf<String, Any?>("id" to seg.id, "on" to true, "frz" to false) +
+                    (if (isFloodlight(model)) floodFields else main)
+            }
         }
 
         return linkedMapOf(
@@ -263,6 +286,22 @@ class LookService(
             "tb" to 0,   // reset the effect timebase so every controller starts in phase
             "udpn" to noSync,
             "seg" to segments,
+        )
+    }
+
+    /** The effect, options, palette and colors of one segment, with names mapped to this controller's ids. */
+    private fun segmentFields(cat: ControllerCatalog, look: Look): Map<String, Any?> {
+        val fx = cat.effects.indexOf(look.fx).takeIf { it >= 0 }
+            ?: error("effect '${look.fx}' is not on this controller")
+        val pal = cat.palettes.indexOf(look.pal).takeIf { it >= 0 }
+            ?: error("palette '${look.pal}' is not on this controller")
+        return linkedMapOf(
+            "fx" to fx,
+            "sx" to look.sx.coerceIn(0, 255), "ix" to look.ix.coerceIn(0, 255),
+            "c1" to look.c1.coerceIn(0, 255), "c2" to look.c2.coerceIn(0, 255), "c3" to look.c3.coerceIn(0, 31),
+            "o1" to look.o1, "o2" to look.o2, "o3" to look.o3,
+            "pal" to pal,
+            "col" to sanitizeColors(look.col),
         )
     }
 

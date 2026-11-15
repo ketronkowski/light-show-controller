@@ -176,4 +176,78 @@ class LookServiceTest {
         verify(apiClient).postState(eq("192.168.6.25"), any())
         verify(apiClient, never()).postState(eq("192.168.6.26"), any())
     }
+
+    // ── Floodlights ──────────────────────────────────────────────────────────
+
+    private val withFloods: ControllerValidation = run {
+        val ctrl = controller.copy(models = controller.models +
+            XLightsModel("front-floods", "Octa5", startChannel = 616, channelCount = 16, isNull = false, bytesPerNode = 4))
+        val dev = device.copy(segments = device.segments + WledSegment(3, "front-floods", 205, 209, on = true), totalLeds = 209)
+        inSync.copy(
+            xLightsController = ctrl, wledDevice = dev, expectedTotalLeds = 209,
+            segmentValidations = ctrl.models.mapIndexed { i, m ->
+                SegmentValidation(m, dev.segments[i].start, dev.segments[i].stop, dev.segments[i], SegmentStatus.OK)
+            },
+        )
+    }
+
+    @Test
+    fun `floodlight names are recognised by the word flood`() {
+        assertTrue(isFloodlight("front-floods"))
+        assertTrue(isFloodlight("Garage Flood 2"))
+        assertTrue(isFloodlight("FLOODLIGHT"))
+        assertFalse(isFloodlight("Arch"))
+        assertFalse(isFloodlight(null))
+    }
+
+    @Test
+    fun `floodlights get their own look, everything else keeps the main one`() {
+        val flood = Look(fx = "Solid", pal = "Default", col = listOf(listOf(255, 200, 0)), bri = 1, on = false)
+        val body = service.buildBody(withFloods, catalog, look, flood)
+
+        assertEquals(true, body["on"], "power comes from the main look")
+        assertEquals(180, body["bri"], "brightness comes from the main look")
+        @Suppress("UNCHECKED_CAST")
+        val segs = body["seg"] as List<Map<String, Any?>>
+        assertEquals(listOf(0, 1, 2, 3), segs.map { it["id"] })
+        assertEquals(2, segs[0]["fx"])
+        assertEquals(2, segs[2]["fx"])
+        assertEquals(mapOf("id" to 1, "on" to false), segs[1])
+        assertEquals(true, segs[3]["on"])
+        assertEquals(0, segs[3]["fx"])          // Solid
+        assertEquals(0, segs[3]["pal"])
+        assertEquals(listOf(listOf(255, 200, 0), listOf(0, 0, 0), listOf(0, 0, 0)), segs[3]["col"])
+    }
+
+    @Test
+    fun `without a flood look the floodlights get the main look`() {
+        @Suppress("UNCHECKED_CAST")
+        val segs = service.buildBody(withFloods, catalog, look)["seg"] as List<Map<String, Any?>>
+        assertEquals(segs[0], segs[3] + mapOf("id" to 0))
+    }
+
+    @Test
+    fun `a flood look is ignored on a controller without floodlights`() {
+        val bad = Look(fx = "Not On This Controller")
+        assertEquals(service.buildBody(inSync, catalog, look), service.buildBody(inSync, catalog, look, bad))
+    }
+
+    @Test
+    fun `catalog reports floodlights and pre-fills from a non-flood segment`() {
+        val ip = "192.168.6.25"
+        whenever(apiClient.fetchEffects(ip)).thenReturn(catalog.effects)
+        whenever(apiClient.fetchPalettes(ip)).thenReturn(catalog.palettes)
+        whenever(apiClient.fetchFxData(ip)).thenReturn(catalog.fxData)
+        whenever(apiClient.fetchState(ip)).thenReturn(WledStateResponse(mainseg = 1, seg = listOf(
+            WledSegmentDto(id = 0, name = "Arch", fx = 2),
+            WledSegmentDto(id = 1, name = "front-floods", fx = 0, col = listOf(listOf(255, 200, 0))),
+        )))
+
+        val cat = service.catalog(listOf(ip))
+
+        assertEquals(mapOf(ip to listOf("front-floods")), cat.floodlights)
+        assertEquals("Chase 3", cat.current!!.fx)
+        assertEquals("Solid", cat.currentFlood!!.fx)
+        assertEquals(listOf(255, 200, 0), cat.currentFlood!!.col[0])
+    }
 }
