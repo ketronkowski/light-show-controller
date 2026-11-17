@@ -100,4 +100,25 @@ class SegmentGroupingTest {
 
         assertEquals(4, SegmentGrouping.effectiveModels(c, maxSegments = null).size)
     }
+
+    @Test
+    fun `groups named in the setting are merged even under the limit`() {
+        val yews = listOf("Yew Left Top", "Yew Left Middle", "Yew Left Botoom")
+        val c = controller(yews + listOf("Tree Star - Left", "Seed Matrix FL"), mapOf(
+            "KET - Yew Left" to yews,
+            "Other"          to listOf("Tree Star - Left", "Seed Matrix FL"),
+        ))
+
+        val result = SegmentGrouping.effectiveModels(c, maxSegments = 32, alwaysMerge = setOf("ket - yew left"))
+
+        assertEquals(listOf("KET - Yew Left", "Tree Star - Left", "Seed Matrix FL"), result.map { it.name })
+        assertEquals(90, result.first().channelCount)
+    }
+
+    @Test
+    fun `a named group whose models are not adjacent is left alone`() {
+        val c = controller(listOf("Yew Top", "Star", "Yew Bottom"), mapOf("Yews" to listOf("Yew Top", "Yew Bottom")))
+
+        assertEquals(3, SegmentGrouping.effectiveModels(c, maxSegments = 32, alwaysMerge = setOf("Yews")).size)
+    }
 }

@@ -5,14 +5,15 @@ import com.ketronkowski.xlights.domain.XLightsModel
 
 // Turns a controller's xLights models into the list of WLED segments to sync.
 //
-// Two merges, in this order:
+// Merges, in this order:
 //  1. Always: consecutive models whose names differ only by a trailing "-N" become
 //     one segment (PeaceStake-1 … PeaceStake-35 → "PeaceStake").
-//  2. Only when the controller still has more segments than WLED allows: an xLights
-//     model group whose members all sit next to each other on this controller becomes
-//     one segment named after the group (the "KET - Dogwood" group's Dogwood-Base,
-//     -Back, -Right and -Left → "KET - Dogwood"). Just enough groups are merged to fit,
-//     so controllers under the limit keep one segment per model.
+//  2. Always: each xLights model group named in the xlights.segment-groups setting,
+//     when its members all sit next to each other on this controller, becomes one
+//     segment named after the group ("KET - Yew Left" → Yew Left Top/Middle/Bottom).
+//  3. Only when the controller still has more segments than WLED allows: any other
+//     group of adjacent models on this controller, merged the same way. Just enough
+//     groups are merged to fit, so controllers under the limit are left alone.
 internal object SegmentGrouping {
 
     private val numberedSuffix = Regex("""-\d+$""")
@@ -20,11 +21,25 @@ internal object SegmentGrouping {
     // A segment to sync and the xLights model names it covers.
     private data class Entry(val model: XLightsModel, val members: Set<String>)
 
-    fun effectiveModels(controller: XLightsController, maxSegments: Int?): List<XLightsModel> {
+    fun effectiveModels(
+        controller: XLightsController,
+        maxSegments: Int?,
+        alwaysMerge: Set<String> = emptySet(),
+    ): List<XLightsModel> {
         var entries = collapseNumbered(controller.models)
+        val used = mutableSetOf<String>()
+
+        val wanted = alwaysMerge.map { it.lowercase() }.toSet()
+        while (true) {
+            val run = candidateRuns(entries, controller.modelGroups)
+                .filter { it.groupName.lowercase() in wanted && it.groupName !in used }
+                .minByOrNull { it.groupName }
+                ?: break
+            used += run.groupName
+            entries = apply(entries, run)
+        }
         if (maxSegments == null) return entries.map { it.model }
 
-        val used = mutableSetOf<String>()
         while (entries.size > maxSegments) {
             val runs = candidateRuns(entries, controller.modelGroups)
                 .filter { it.groupName !in used }
@@ -35,12 +50,15 @@ internal object SegmentGrouping {
             val pick = runs.filter { it.saves >= needed }.minWithOrNull(compareBy({ it.saves }, { it.groupName }))
                 ?: runs.maxWith(compareBy<Run>({ it.saves }).thenByDescending { it.groupName })
             used += pick.groupName
-            entries = entries.subList(0, pick.from) +
-                merge(pick.groupName, entries.subList(pick.from, pick.to)) +
-                entries.subList(pick.to, entries.size)
+            entries = apply(entries, pick)
         }
         return entries.map { it.model }
     }
+
+    private fun apply(entries: List<Entry>, run: Run): List<Entry> =
+        entries.subList(0, run.from) +
+            merge(run.groupName, entries.subList(run.from, run.to)) +
+            entries.subList(run.to, entries.size)
 
     private data class Run(val groupName: String, val from: Int, val to: Int) {
         val saves get() = to - from - 1

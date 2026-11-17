@@ -9,6 +9,7 @@ import com.ketronkowski.xlights.wled.dto.WledSegmentPatch
 import com.ketronkowski.xlights.wled.dto.WledStatePatch
 import com.ketronkowski.xlights.xlights.XLightsConfigParser
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
@@ -21,7 +22,11 @@ class ValidationService(
     private val apiClient: WledApiClient,
     private val backupService: WledBackupService,
     private val fppClient: FppApiClient,
+    // xLights model groups that always become a single WLED segment (comma-separated).
+    @Value("\${xlights.segment-groups:}") segmentGroups: String = "",
 ) {
+    private val alwaysMerge = segmentGroups.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+
     private val log = LoggerFactory.getLogger(ValidationService::class.java)
 
     fun validate(
@@ -171,7 +176,7 @@ class ValidationService(
 
             if (!backupBeforeMutating(device)) continue
 
-            val effective  = SegmentGrouping.effectiveModels(controller, device.maxSegments)
+            val effective  = SegmentGrouping.effectiveModels(controller, device.maxSegments, alwaysMerge)
             val modelCount = effective.size
             if (modelCount > device.maxSegments) {
                 log.warn("'{}' has {} effective segments but WLED supports only {} — " +
@@ -335,7 +340,7 @@ class ValidationService(
 
             val bpp          = channelsPerPixel(controller)
             val expectedLeds = controller.totalChannels / bpp
-            val effective    = SegmentGrouping.effectiveModels(controller, device?.maxSegments)
+            val effective    = SegmentGrouping.effectiveModels(controller, device?.maxSegments, alwaysMerge)
             val segValidations = effective.map { model ->
                 validateModel(model, device, bpp)
             }
