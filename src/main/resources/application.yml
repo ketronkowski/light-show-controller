@@ -15,6 +15,9 @@ spring:
 
 xlights:
   data-dir: ${XLIGHTS_DATA_DIR:/data}
+  # xLights model groups that always become one WLED segment, when the group's models
+  # sit next to each other on one controller. Comma-separated group names.
+  segment-groups: ${XLIGHTS_SEGMENT_GROUPS:KET - Dogwood,KET - Yew Left,KET - Yew Right}
   # Falcon Player (FPP) show controller. Only needed when FPP's UI password is on.
   fpp:
     username: ${FPP_USERNAME:admin}

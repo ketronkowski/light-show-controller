@@ -89,6 +89,32 @@ class XLightsConfigParserTest {
     }
 
     @Test
+    fun `keeps only model groups made entirely of the controller's own models`(@org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        dir.resolve("xlights_networks.xml").toFile().writeText("""
+            <Networks>
+              <Controller Name="Octa6" IP="1.2.3.4"><network MaxChannels="90"/></Controller>
+              <Controller Name="Octa7" IP="1.2.3.5"><network MaxChannels="30"/></Controller>
+            </Networks>
+        """.trimIndent())
+        dir.resolve("xlights_rgbeffects.xml").toFile().writeText("""
+            <xrgb><models>
+              <model name="Dogwood-Base" Controller="Octa6" StartChannel="!Octa6:1"  NumStrings="1" NodesPerString="10" StringType="RGB Nodes"/>
+              <model name="Dogwood-Back" Controller="Octa6" StartChannel="!Octa6:31" NumStrings="1" NodesPerString="10" StringType="RGB Nodes"/>
+              <model name="Arch"         Controller="Octa7" StartChannel="!Octa7:1"  NumStrings="1" NodesPerString="10" StringType="RGB Nodes"/>
+            </models><modelGroups>
+              <modelGroup name="KET - Dogwood" models="Dogwood-Back,Dogwood-Base"/>
+              <modelGroup name="Everything"    models="Dogwood-Back,Dogwood-Base,Arch"/>
+              <modelGroup name="Sub"           models="Dogwood-Base/Top,Dogwood-Back"/>
+            </modelGroups></xrgb>
+        """.trimIndent())
+
+        val byName = parser.parse(dir).associateBy { it.name }
+
+        assertEquals(mapOf("KET - Dogwood" to listOf("Dogwood-Back", "Dogwood-Base")), byName.getValue("Octa6").modelGroups)
+        assertEquals(emptyMap<String, List<String>>(), byName.getValue("Octa7").modelGroups)
+    }
+
+    @Test
     fun `FPP is recognised from the xLights vendor, not the controller name`(@org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
         dir.resolve("xlights_networks.xml").toFile().writeText("""
             <Networks>

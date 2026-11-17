@@ -9,6 +9,9 @@ data class XLightsController(
     // xLights' controller Vendor/Model (e.g. "WLED", or "FPP" for a Falcon Player).
     val vendor: String = "",
     val model: String = "",
+    // xLights model groups whose members are all models on this controller
+    // (group name → member model names). Used to fit within WLED's segment limit.
+    val modelGroups: Map<String, List<String>> = emptyMap(),
 ) {
     // A Falcon Player is a show controller (it plays sequences and drives other
     // controllers), not a WLED pixel controller, so it gets no segment sync or backup.
