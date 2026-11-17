@@ -52,11 +52,13 @@ class LookService(
             targets.map { ip ->
                 CompletableFuture.supplyAsync({
                     try {
-                        val cat = controllerCatalog(ip)
-                        Fetched(ip, cat, apiClient.fetchInfo(ip), apiClient.fetchState(ip), null)
+                        retryOnce(ip) {
+                            val cat = controllerCatalog(ip)
+                            Fetched(ip, cat, apiClient.fetchInfo(ip), apiClient.fetchState(ip), null)
+                        }
                     } catch (e: Exception) {
-                        log.warn("Set Look: cannot read catalog from {}: {}", ip, e.message)
-                        Fetched(ip, null, null, null, e.message ?: e.javaClass.simpleName)
+                        log.warn("Set Look: cannot read catalog from {}", ip, e)
+                        Fetched(ip, null, null, null, rootMessage(e))
                     }
                 }, pool)
             }.map { it.join() }
@@ -104,6 +106,29 @@ class LookService(
         }
         val first = looks.firstOrNull()?.second ?: return emptyMap()
         return looks.drop(1).filter { it.second != first }.associate { (ip, look) -> ip to look.fx }
+    }
+
+    /**
+     * A busy controller now and then cuts a response off partway (WLED streams these
+     * lists chunked and closes the connection), which surfaces as a JSON parse error.
+     * One retry after a short pause is enough to get past it.
+     */
+    internal fun <T> retryOnce(ip: String, pauseMs: Long = 300, block: () -> T): T =
+        try {
+            block()
+        } catch (e: Exception) {
+            log.info("Set Look: retrying {} after: {}", ip, rootMessage(e))
+            Thread.sleep(pauseMs)
+            block()
+        }
+
+    /** The innermost cause's message, which says what actually went wrong (e.g. "Unexpected end-of-input"). */
+    internal fun rootMessage(e: Throwable): String {
+        var c: Throwable = e
+        while (c.cause != null && c.cause !== c) c = c.cause!!
+        val msg = c.message?.lineSequence()?.firstOrNull()?.take(200)
+        return if (c === e) (msg ?: e.javaClass.simpleName)
+               else "${e.message?.substringBefore(" for type")?.take(120) ?: e.javaClass.simpleName}: ${msg ?: c.javaClass.simpleName}"
     }
 
     private fun controllerCatalog(ip: String): ControllerCatalog =

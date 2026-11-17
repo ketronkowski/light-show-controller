@@ -250,4 +250,33 @@ class LookServiceTest {
         assertEquals("Solid", cat.currentFlood!!.fx)
         assertEquals(listOf(255, 200, 0), cat.currentFlood!!.col[0])
     }
+
+    @Test
+    fun `catalog retries a controller once when a response is cut off`() {
+        val ip = "192.168.6.43"
+        whenever(apiClient.fetchEffects(ip))
+            .thenThrow(RuntimeException("Error while extracting response", RuntimeException("Unexpected end-of-input")))
+            .thenReturn(catalog.effects)
+        whenever(apiClient.fetchPalettes(ip)).thenReturn(catalog.palettes)
+        whenever(apiClient.fetchFxData(ip)).thenReturn(catalog.fxData)
+        whenever(apiClient.fetchState(ip)).thenReturn(WledStateResponse(seg = listOf(WledSegmentDto(id = 0, name = "Arch"))))
+
+        val cat = service.catalog(listOf(ip))
+
+        assertEquals(emptyMap<String, String>(), cat.unreachable)
+        assertEquals("Solid", cat.effects.first().name)
+    }
+
+    @Test
+    fun `a controller that fails twice is reported with the underlying cause`() {
+        val ip = "192.168.6.43"
+        whenever(apiClient.fetchEffects(ip)).thenThrow(
+            RuntimeException("Error while extracting response for type [java.util.List<java.lang.String>]",
+                RuntimeException("Unexpected end-of-input: expected close marker for Array")))
+
+        val cat = service.catalog(listOf(ip))
+
+        assertEquals("Error while extracting response: Unexpected end-of-input: expected close marker for Array",
+            cat.unreachable[ip])
+    }
 }

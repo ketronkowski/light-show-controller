@@ -1122,7 +1122,7 @@ function renderLookNotice() {
       `${nameFor(firstIp)}'s (${lookCatalog.current.fx}); different: ${others}. Apply sets them all to the same look.`);
   }
   Object.entries(lookCatalog.unreachable || {}).forEach(([ip, err]) =>
-    lines.push(`Couldn't reach ${nameFor(ip)} (${err}); only effects the reachable controllers share are listed.`));
+    lines.push(`Couldn't read effects from ${nameFor(ip)} (${err}); it's left out, and only effects the other controllers share are listed. Refresh to try again.`));
   lookEls.lookNotice.innerHTML = lines.map(l => `<div>${escapeHtml(l)}</div>`).join('');
   lookEls.lookNotice.hidden = lines.length === 0;
 }
