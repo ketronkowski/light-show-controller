@@ -23,13 +23,35 @@ class XLightsConfigParser {
 
         val controllers = parseControllers(networksFile)
         val models      = parseModels(effectsFile)
+        val groups      = parseModelGroups(effectsFile)
 
         return controllers.map { controller ->
             val assigned = models
                 .filter { it.controllerName.equals(controller.name, ignoreCase = true) }
                 .sortedBy { it.startChannel }
-            controller.copy(models = assigned)
+            val names = assigned.map { it.name.lowercase() }.toSet()
+            val ownGroups = groups.filterValues { members ->
+                members.size >= 2 && members.all { it.lowercase() in names }
+            }
+            controller.copy(models = assigned, modelGroups = ownGroups)
         }
+    }
+
+    // Schema (observed in xLights 2026):
+    //   <modelGroup name="KET - Dogwood" models="Dogwood-Left,Dogwood-Back,..." />
+    // Members can also be submodels ("Model/Sub") or other groups; those never match
+    // a controller's models, so such groups are dropped above.
+    private fun parseModelGroups(file: Path): Map<String, List<String>> {
+        val doc = buildDoc(file)
+        val groups = linkedMapOf<String, List<String>>()
+        val nodes: NodeList = doc.getElementsByTagName("modelGroup")
+        for (i in 0 until nodes.length) {
+            val el = nodes.item(i) as? Element ?: continue
+            val name = el.getAttribute("name").trim()
+            if (name.isBlank()) continue
+            groups[name] = el.getAttribute("models").split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        }
+        return groups
     }
 
     // ── Networks file ────────────────────────────────────────────────────────

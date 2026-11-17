@@ -171,7 +171,7 @@ class ValidationService(
 
             if (!backupBeforeMutating(device)) continue
 
-            val effective  = collapseGroups(controller.models)
+            val effective  = SegmentGrouping.effectiveModels(controller, device.maxSegments)
             val modelCount = effective.size
             if (modelCount > device.maxSegments) {
                 log.warn("'{}' has {} effective segments but WLED supports only {} — " +
@@ -335,7 +335,7 @@ class ValidationService(
 
             val bpp          = channelsPerPixel(controller)
             val expectedLeds = controller.totalChannels / bpp
-            val effective    = collapseGroups(controller.models)
+            val effective    = SegmentGrouping.effectiveModels(controller, device?.maxSegments)
             val segValidations = effective.map { model ->
                 validateModel(model, device, bpp)
             }
@@ -404,39 +404,5 @@ class ValidationService(
         if (wledName.equals(controllerName, ignoreCase = true)) return true
         val stripped = wledName.removePrefix("wled-")
         return stripped.equals(controllerName, ignoreCase = true)
-    }
-
-    // Merge consecutive models whose names share a common base after stripping a trailing "-N" suffix
-    // (e.g., PeaceStake-1 … PeaceStake-35 → one "PeaceStake" model spanning the full range).
-    // Models without a numbered suffix, or whose base differs from their neighbor, are left alone.
-    private fun collapseGroups(models: List<XLightsModel>): List<XLightsModel> {
-        val numberedSuffix = Regex("""-\d+$""")
-        val result = mutableListOf<XLightsModel>()
-        var i = 0
-        while (i < models.size) {
-            val model = models[i]
-            if (!model.name.matches(Regex(""".*-\d+$"""))) {
-                result += model
-                i++
-                continue
-            }
-            val baseName = model.name.replace(numberedSuffix, "")
-            var j = i + 1
-            while (j < models.size) {
-                val next = models[j]
-                if (!next.name.matches(Regex(""".*-\d+$"""))) break
-                if (next.name.replace(numberedSuffix, "") != baseName) break
-                j++
-            }
-            val group = models.subList(i, j)
-            result += if (group.size == 1) model
-            else model.copy(
-                name         = baseName,
-                channelCount = group.sumOf { it.channelCount },
-                isNull       = group.all { it.isNull },
-            )
-            i = j
-        }
-        return result
     }
 }
