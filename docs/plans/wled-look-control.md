@@ -166,6 +166,17 @@ Because the dialog only opens for in-sync controllers (below), the "no matching
 model" row shouldn't happen in practice; the backend still turns such a
 segment off rather than guessing.
 
+### Floodlights
+
+Any model whose name contains "flood" (e.g. `front-floods`) is a floodlight and
+can have a look of its own (Kevin, 2026-11-15). When a selected controller has
+one, the dialog shows **Other lights / Floodlights** tabs under Power. The
+Floodlights tab has "Same look as the other lights" (on by default unless the
+floods are already showing something different); untick it and the effect,
+options, colors and palette controls edit the floodlights' look, e.g. Solid in
+one color. Power and brightness stay per controller. Apply sends it as
+`flood` next to `look`; `null` means "same".
+
 The whole look is always sent (effect, every option, all 3 colors, palette),
 never just the fields you changed, so every controller ends up identical.
 
@@ -192,7 +203,7 @@ never just the fields you changed, so every controller ends up identical.
 - Saving presets or building playlists on the controllers (a follow-on
   feature). Looks are temporary and revert to the boot preset on reboot.
 - Overriding a running show (`lor`).
-- Different looks per segment inside one controller.
+- Different looks per segment inside one controller (beyond the floodlight look above).
 - 2D effects.
 - Palette gradient previews.
 - Live preview while dragging sliders; changes go out only on Apply.

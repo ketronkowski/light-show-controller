@@ -25,6 +25,12 @@ data class LookTarget(val name: String, val ip: String? = null)
 data class ApplyLookRequest(
     val controllers: List<LookTarget> = emptyList(),
     val look: Look = Look(),
+    /**
+     * The floodlights' own look, or null for "same as the other lights". Only its effect,
+     * options, colors and palette are used: power and brightness are per controller and
+     * come from [look].
+     */
+    val flood: Look? = null,
 )
 
 /** Power switch: takes effect at once, without Apply. */
@@ -52,7 +58,7 @@ data class LookCatalog(
     val effects: List<CatalogEffect>,
     /** Palettes every reachable controller has: Default, the "* ..." specials, then alphabetical. */
     val palettes: List<String>,
-    /** The first reachable controller's main segment, to pre-fill the dialog. */
+    /** The first reachable controller's main (non-floodlight) segment, to pre-fill the dialog. */
     val current: Look?,
     /** IPs of controllers currently receiving show data (the look won't show until it stops). */
     val live: List<String>,
@@ -66,4 +72,18 @@ data class LookCatalog(
     val differing: Map<String, String> = emptyMap(),
     /** ip → why it could not be reached. */
     val unreachable: Map<String, String>,
+    /** ip → names of that controller's floodlight segments (see [isFloodlight]). Controllers without any are left out. */
+    val floodlights: Map<String, List<String>> = emptyMap(),
+    /**
+     * The first floodlight segment's current look, to pre-fill the dialog's Floodlights
+     * tab, or null when no selected controller has floodlights.
+     */
+    val currentFlood: Look? = null,
 )
+
+/**
+ * Whether an xLights model (and so the WLED segment named after it) is a floodlight,
+ * which Set Look can give its own look: its name contains "flood", e.g. "front-floods"
+ * or "Garage Flood 2".
+ */
+fun isFloodlight(name: String?): Boolean = name?.contains("flood", ignoreCase = true) == true

@@ -112,8 +112,7 @@
       <div id="lookNotice" class="look-notice" hidden></div>
       <p id="lookLoading" class="progress-status-line">Loading effects…</p>
       <div id="lookBody" class="look-body" hidden>
-        <div class="look-col">
-          <section class="look-section">
+        <section class="look-section look-wide">
             <h3>Power</h3>
             <div class="look-power">
               <div class="look-power-row">
@@ -126,7 +125,17 @@
                 <output id="lookBriVal" class="look-slider-value"></output>
               </label>
             </div>
-          </section>
+        </section>
+        <div id="lookTabs" class="look-tabs look-wide" role="tablist" hidden>
+          <button type="button" id="lookTabMain" class="look-tab active" role="tab" aria-selected="true">Other lights</button>
+          <button type="button" id="lookTabFlood" class="look-tab" role="tab" aria-selected="false">Floodlights</button>
+        </div>
+        <div id="lookFloodSameRow" class="look-flood-same look-wide" hidden>
+          <label class="look-check"><input type="checkbox" id="lookFloodSame" /> <span>Same look as the other lights</span></label>
+          <span id="lookFloodNames" class="look-flood-names"></span>
+        </div>
+        <div id="lookEditor" class="look-editor look-wide">
+        <div class="look-col">
           <section class="look-section">
             <h3>Effect</h3>
             <input type="search" id="lookFxSearch" class="filter-input look-search" placeholder="Search effects…" autocomplete="off" />
@@ -157,6 +166,7 @@
             </div>
             <p id="lookPalUnused" class="look-unused" hidden>Color palette not used</p>
           </section>
+        </div>
         </div>
       </div>
       <div class="modal-actions look-actions">
