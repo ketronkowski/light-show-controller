@@ -17,6 +17,9 @@ export TECHNITIUM_TOKEN="..."         # API token from the Technitium primary; n
 dig octa5.show.nh.tronkowski.net @192.168.16.101
 ```
 
+Each name is the xLights controller name lowercased, with spaces turned into hyphens ("Tune In" →
+`tune-in`). It matches the controller's WLED mDNS hostname.
+
 Edit `hosts.csv` when a controller is added, retired or renumbered, then run it again. Records not
 listed in the CSV are left alone.
 
