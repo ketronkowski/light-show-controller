@@ -95,6 +95,32 @@ class ValidationServiceTest {
         assertEquals(1, report.unpairedWledDevices.size)
     }
 
+    @Test
+    fun `controller pairs with the device at its own IP even when the WLED name differs`() {
+        val parser = mock<XLightsConfigParser>()
+        val apiClient = mock<WledApiClient>()
+        val tuneIn = controller.copy(name = "Tune In")
+        whenever(parser.parse(any())).thenReturn(listOf(tuneIn))
+        whenever(apiClient.fetchDevice(tuneIn.ipAddress!!)).thenReturn(perfectDevice.copy(name = "Tune-in-quinled"))
+        val service = ValidationService(parser, mock<WledDiscovery>(), apiClient, mock<WledBackupService>(), mock<FppApiClient>())
+
+        val report = service.validate(java.nio.file.Path.of("."), 0)
+
+        val cv = report.controllerValidations.single()
+        assertNotNull(cv.wledDevice)
+        assertTrue(report.unpairedXlightsControllers.isEmpty())
+        assertTrue(report.unpairedWledDevices.isEmpty())
+    }
+
+    @Test
+    fun `controller name matching ignores case, spaces, punctuation and a wled- prefix`() {
+        val service = ValidationService(mock(), mock(), mock(), mock(), mock())
+        assertTrue(service.matchesControllerName("Tune-in", "Tune In"))
+        assertTrue(service.matchesControllerName("wled-octa1", "Octa1"))
+        assertTrue(service.matchesControllerName("WLED-Mega_Tree 1", "Mega Tree 1"))
+        assertFalse(service.matchesControllerName("Octa1", "Octa10"))
+    }
+
     // ── fix()/fixAll() back up before mutating ──────────────────────────────────
 
     @Test
