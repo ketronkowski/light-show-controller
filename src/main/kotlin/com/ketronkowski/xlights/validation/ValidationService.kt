@@ -41,20 +41,21 @@ class ValidationService(
         val (fppByConfig, candidates) = controllers.partition { it.isFpp }
         // Skip mDNS when a filter is given — we already have the exact hostnames we need.
         val runMdns = controllerFilter.isEmpty()
-        val wledDevices = fetchDevices(candidates, if (runMdns) timeoutSeconds else 0)
+        val (wledDevices, reachedByController) = fetchDevices(candidates, if (runMdns) timeoutSeconds else 0)
 
         // An FPP that xLights lists under another vendor (e.g. a cape maker) fails the
         // WLED fetch; ask it whether it's an FPP before calling it an unreachable WLED.
         val fppByProbe = candidates.filter { c ->
             c.ipAddress != null
                 && !c.vendor.equals("WLED", ignoreCase = true)
+                && c.name !in reachedByController
                 && wledDevices.none { matchesControllerName(it.name, c.name) }
                 && fppClient.looksLikeFpp(c.ipAddress)
         }
         val wledControllers = candidates.filter { it !in fppByProbe }
         val showControllers = checkShowControllers(fppByConfig + fppByProbe)
 
-        return buildReport(wledControllers, wledDevices).copy(showControllers = showControllers)
+        return buildReport(wledControllers, wledDevices, reachedByController).copy(showControllers = showControllers)
     }
 
     private fun checkShowControllers(controllers: List<XLightsController>): List<ShowControllerStatus> {
@@ -269,7 +270,13 @@ class ValidationService(
 
     // Fetch devices in parallel: use xLights-configured hostnames first (most reliable),
     // then fold in mDNS discovery for any additional devices not already found.
-    private fun fetchDevices(controllers: List<XLightsController>, timeoutSeconds: Int): List<WledDevice> {
+    // Also returns xLights controller name → the device that answered at that
+    // controller's own configured address, so pairing doesn't depend on the WLED
+    // device name matching the xLights controller name.
+    private fun fetchDevices(
+        controllers: List<XLightsController>,
+        timeoutSeconds: Int,
+    ): Pair<List<WledDevice>, Map<String, WledDevice>> {
         val pool = Executors.newCachedThreadPool()
         try {
             // Primary: each controller's configured hostname/IP — all in parallel
@@ -289,7 +296,10 @@ class ValidationService(
                     }, pool)
                 }
 
-            val devices = futures.mapNotNull { (_, f) -> f.get() }.toMutableList()
+            val reachedByController = futures
+                .mapNotNull { (ctrl, f) -> f.get()?.let { ctrl.name to it } }
+                .toMap()
+            val devices = reachedByController.values.distinctBy { it.ipAddress }.toMutableList()
             val reachedNames = devices.map { it.name.lowercase() }.toHashSet()
 
             // Secondary: mDNS discovery for devices not already fetched (skipped when timeout=0)
@@ -306,8 +316,9 @@ class ValidationService(
                             }
                         }, pool)
                     }
+                    val reachedIps = devices.map { it.ipAddress }.toHashSet()
                     extraFutures.mapNotNull { it.get() }
-                        .filter { it.name.lowercase() !in reachedNames }
+                        .filter { it.name.lowercase() !in reachedNames && it.ipAddress !in reachedIps }
                         .forEach { device ->
                             devices += device
                             log.info("Discovered additional WLED device '{}' at {} via mDNS", device.name, device.ipAddress)
@@ -317,22 +328,27 @@ class ValidationService(
                 }
             }
 
-            return devices
+            return devices to reachedByController
         } finally {
             pool.shutdown()
         }
     }
 
-    private fun buildReport(
+    internal fun buildReport(
         xLightsControllers: List<XLightsController>,
         wledDevices: List<WledDevice>,
+        reachedByController: Map<String, WledDevice> = emptyMap(),
     ): ValidationReport {
         val pairedXlights  = mutableSetOf<String>()
         val pairedWled     = mutableSetOf<String>()
         val validations    = mutableListOf<ControllerValidation>()
 
         for (controller in xLightsControllers) {
-            val device = wledDevices.find { matchesControllerName(it.name, controller.name) }
+            // A device that answered at this controller's own address is this controller,
+            // whatever its WLED name is (e.g. xLights "Tune In" vs WLED "Tune-in").
+            // Name matching only covers devices found by mDNS alone.
+            val device = reachedByController[controller.name]
+                ?: wledDevices.find { it.name !in pairedWled && matchesControllerName(it.name, controller.name) }
             if (device != null) {
                 pairedXlights += controller.name
                 pairedWled    += device.name
@@ -402,12 +418,13 @@ class ValidationService(
     internal fun channelsPerPixel(controller: XLightsController): Int =
         if (controller.models.isNotEmpty() && controller.models.all { it.bytesPerNode == 4 }) 4 else 3
 
-    // Pair WLED device name to xLights controller name:
-    //  1. Exact match (case-insensitive): "Octa1" == "Octa1"
-    //  2. Strip common "wled-" prefix: "wled-octa1" matches "Octa1"
-    private fun matchesControllerName(wledName: String, controllerName: String): Boolean {
-        if (wledName.equals(controllerName, ignoreCase = true)) return true
-        val stripped = wledName.removePrefix("wled-")
-        return stripped.equals(controllerName, ignoreCase = true)
+    // Pair WLED device name to xLights controller name, for devices found only by mDNS:
+    //  1. Strip a common "wled-" prefix: "wled-octa1" matches "Octa1"
+    //  2. Compare letters and digits only, ignoring case: "Tune-in" matches "Tune In"
+    internal fun matchesControllerName(wledName: String, controllerName: String): Boolean {
+        fun norm(s: String) = s.lowercase().filter { it.isLetterOrDigit() }
+        val c = norm(controllerName)
+        if (c.isEmpty()) return wledName.equals(controllerName, ignoreCase = true)
+        return norm(wledName) == c || norm(wledName.lowercase().removePrefix("wled-")) == c
     }
 }
