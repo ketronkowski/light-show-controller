@@ -4,6 +4,7 @@ import com.ketronkowski.xlights.domain.*
 import com.ketronkowski.xlights.fpp.FppApiClient
 import com.ketronkowski.xlights.wled.WledApiClient
 import com.ketronkowski.xlights.wled.WledBackupService
+import com.ketronkowski.xlights.wled.WledBootPresetSync
 import com.ketronkowski.xlights.wled.WledDiscovery
 import com.ketronkowski.xlights.wled.dto.WledSegmentPatch
 import com.ketronkowski.xlights.wled.dto.WledStatePatch
@@ -22,6 +23,8 @@ class ValidationService(
     private val apiClient: WledApiClient,
     private val backupService: WledBackupService,
     private val fppClient: FppApiClient,
+    /** Re-saves each board's boot preset after its segments change, so they survive a reboot. */
+    private val bootPreset: WledBootPresetSync? = null,
     // xLights model groups that always become a single WLED segment (comma-separated).
     @Value("\${xlights.segment-groups:}") segmentGroups: String = "",
 ) {
@@ -105,6 +108,11 @@ class ValidationService(
                 if (plan.skipped > 0) {
                     errors[cv.xLightsController.name] =
                         "${plan.skipped} segment(s) not created: WLED supports at most ${device.maxSegments} segments"
+                }
+                if (plan.upserts.isNotEmpty() || plan.deletions.isNotEmpty()) {
+                    saveBootPreset(device)?.let { msg ->
+                        errors.merge(cv.xLightsController.name, msg) { a, b -> "$a; $b" }
+                    }
                 }
             } catch (e: Exception) {
                 log.error("Update failed for '{}' ({}): {}", device.name, device.ipAddress, e.message)
@@ -215,6 +223,7 @@ class ValidationService(
                 log.info("  [{}] {}  pixels {}-{}  on={}", index, model.name, pixelStart, pixelStop, !model.isNull)
                 apiClient.patchState(device.ipAddress, WledStatePatch(listOf(patch)))
             }
+            saveBootPreset(device)
         }
     }
 
@@ -251,6 +260,25 @@ class ValidationService(
             apiClient.patchState(device.ipAddress, WledStatePatch(listOf(
                 WledSegmentPatch(id = index, start = start, stop = stop, on = true)
             )))
+        }
+        saveBootPreset(device)
+    }
+
+    // Saves the device's new segments into its boot preset so a reboot keeps them.
+    // Returns an error message when that fails; the segment change itself still stands.
+    private fun saveBootPreset(device: WledDevice): String? {
+        val sync = bootPreset ?: return null
+        return try {
+            when (val r = sync.sync(device.ipAddress)) {
+                is WledBootPresetSync.Result.Saved ->
+                    log.info("Boot preset {} on '{}' now holds {} segment(s)", r.preset, device.name, r.segments)
+                is WledBootPresetSync.Result.Skipped ->
+                    log.info("Boot preset not saved on '{}': {}", device.name, r.reason)
+            }
+            null
+        } catch (e: Exception) {
+            log.error("Boot preset save failed on '{}' ({}): {}", device.name, device.ipAddress, e.message)
+            "segments updated, but the boot preset was not saved (${e.message ?: e.javaClass.simpleName}); they will reset at the next reboot"
         }
     }
 
