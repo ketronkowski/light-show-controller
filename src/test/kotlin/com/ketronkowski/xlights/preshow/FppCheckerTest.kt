@@ -34,6 +34,17 @@ class FppCheckerTest {
     }
 
     @Test
+    fun `before the first show night a missing schedule is only a warning`() {
+        val items = json("""[{"playlist":"Background","enabled":true,"startTime":${epoch(17)},"endTime":${epoch(22)}}]""")
+        val dry = ctx().copy(firstShowNight = java.time.LocalDate.of(2026, 11, 27))
+        val r = fpp.scheduleResult(items, dry, "FPP")
+        assertEquals(Outcome.WARN, r.outcome)
+        assertTrue(r.message.contains("dry run, first show night is 2026-11-27"))
+        val showNight = ctx().copy(firstShowNight = java.time.LocalDate.of(2026, 11, 26))
+        assertEquals(Outcome.FAIL, fpp.scheduleResult(items, showNight, "FPP").outcome)
+    }
+
+    @Test
     fun `playlist validation reports missing files, empty and absent playlists`() {
         val all = json("""[
             {"name":"Remote","valid":false,"messages":["Sequence 'Althea.fseq' not found"],"total_items":"25"},

@@ -157,7 +157,12 @@ class FppChecker(
             val to = clock.format(Instant.ofEpochSecond(hit.path("endTime").asLong()))
             CheckResult.pass(layer, "Tonight's schedule", target, "${hit.path("playlist").asText()} scheduled $from to $to")
         } else {
-            CheckResult.fail(layer, "Tonight's schedule", target, "no $wanted playlist scheduled at ${clock.format(Instant.ofEpochSecond(showAt))} tonight")
+            val msg = "no $wanted playlist scheduled at ${clock.format(Instant.ofEpochSecond(showAt))} tonight"
+            if (ctx.showNight) {
+                CheckResult.fail(layer, "Tonight's schedule", target, msg)
+            } else {
+                CheckResult.warn(layer, "Tonight's schedule", target, "$msg (dry run, first show night is ${ctx.firstShowNight})")
+            }
         }
     }
 
