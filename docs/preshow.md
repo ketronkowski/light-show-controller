@@ -61,6 +61,7 @@ preshow:
   zone: America/New_York
   season-start: 2026-11-26
   season-end: 2026-12-31
+  first-show-night: 2026-11-26   # optional: earlier season days are dry runs (missing FPP schedule only warns)
   show-start: "17:00"
   wled:
     expected-firmware: 16.0.1

@@ -16,6 +16,11 @@ data class PreShowProperties(
     /** First and last show night (inclusive). Scheduled runs are skipped outside it. */
     val seasonStart: LocalDate? = null,
     val seasonEnd: LocalDate? = null,
+    /**
+     * First real show night, when it differs from [seasonStart] (dry runs before it).
+     * Before this date a missing show playlist in FPP's schedule is a warning, not a blocker.
+     */
+    val firstShowNight: LocalDate? = null,
     /** When the show starts each night; used to check FPP's schedule. */
     val showStart: LocalTime = LocalTime.of(17, 0),
     val passes: List<PassSchedule> = listOf(

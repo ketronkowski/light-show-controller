@@ -80,6 +80,7 @@ class PreShowService(
             now = started,
             zone = zone,
             showStart = props.showStart,
+            firstShowNight = props.firstShowNight,
             fppHost = props.fpp.host.ifBlank { null } ?: controllers.firstOrNull { it.isFpp }?.ipAddress,
         )
 

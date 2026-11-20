@@ -3,6 +3,7 @@ package com.ketronkowski.xlights.preshow
 import com.ketronkowski.xlights.domain.XLightsController
 import java.nio.file.Path
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -16,10 +17,14 @@ data class CheckContext(
     val showStart: LocalTime,
     /** FPP's address, from settings or the xLights layout. */
     val fppHost: String?,
+    /** First real show night. Before it, a missing show schedule is only a warning (dry runs). */
+    val firstShowNight: LocalDate? = null,
 ) {
     val localNow: ZonedDateTime get() = now.atZone(zone)
     /** Before tonight's show start (pre-show passes), as opposed to during or after it. */
     val beforeShow: Boolean get() = localNow.toLocalTime().isBefore(showStart)
+    /** False on dry-run days before the first show night. */
+    val showNight: Boolean get() = firstShowNight == null || !localNow.toLocalDate().isBefore(firstShowNight)
 }
 
 /** One layer of the pre-show check (boards, FPP, power, web, ...). */
