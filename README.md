@@ -196,3 +196,9 @@ Note: the homelab deployment tracks the latest commit on `main` (`:<sha>`) via c
 ## Contributing
 
 Bug reports, feature ideas, and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to file an issue or send a PR.
+
+## Daily pre-show check
+
+A read-only go / no-go check of every board, FPP, show power (through Home Assistant)
+and the public pages, run on a schedule before the show with a push and an emailed
+report. See [docs/preshow.md](docs/preshow.md).
