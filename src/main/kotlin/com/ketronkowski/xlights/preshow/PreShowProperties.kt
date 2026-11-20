@@ -77,6 +77,10 @@ data class PreShowProperties(
         val notifyService: String = "",
         val voltageEntity: String = "",
         val currentEntity: String = "",
+        /** Power sensor in watts, used for the standby check when there is no current sensor (A = W / 120 V). */
+        val powerEntity: String = "",
+        /** The show circuit's own relay (e.g. the Shelly switch). Off = no power to the show. */
+        val circuitSwitchEntity: String = "",
         val minVoltage: Double = 110.0,
         /** Highest believable standby current with the show black, in amps. 0 = skip. */
         val maxStandbyAmps: Double = 0.0,

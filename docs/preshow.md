@@ -21,7 +21,7 @@ ready. It never changes anything: it only reads status.
 | FPP | Playlist files (`/api/playlists/validate`) | a missing sequence or media file, empty or absent playlist | |
 | FPP | Outputs | no active output to a board, or outputs disabled | channel count differs from xLights |
 | FPP | Clock, CPU temperature, disk, volume, MQTT, under-voltage, FPP warnings, restarts | | out of range |
-| Power | Show circuit voltage (Home Assistant) | under 110 V or unavailable | |
+| Power | Show circuit relay and voltage (Home Assistant) | relay off, under 110 V or unavailable | |
 | Power | Standby current | | above a fixed ceiling, or well above the usual pre-show reading |
 | Power | Smart plugs feeding boards | plug off or unavailable | |
 | Web | Each configured URL | page down (when `blocker: true`) | page down, expected text missing, TLS certificate under 14 days |
@@ -77,6 +77,8 @@ preshow:
     notify-service: mobile_app_my_phone
     voltage-entity: sensor.show_circuit_voltage
     current-entity: sensor.show_circuit_current
+    power-entity: sensor.show_circuit_power      # used when there is no current sensor
+    circuit-switch-entity: switch.show_circuit
     plugs:
       Presents: switch.presents_plug
     enabled-entity: input_boolean.preshow_enabled

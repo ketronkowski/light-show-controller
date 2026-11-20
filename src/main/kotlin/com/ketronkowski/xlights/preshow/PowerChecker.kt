@@ -14,6 +14,8 @@ class PowerChecker(
     private val store: PreShowStore,
 ) : PreShowChecker {
     override val layer = "Power"
+
+    private companion object { const val NOMINAL_VOLTS = 120.0 }
     private val cfg get() = props.ha
 
     override fun check(ctx: CheckContext): List<CheckResult> {
@@ -27,8 +29,20 @@ class PowerChecker(
             }
         }
 
+        if (cfg.circuitSwitchEntity.isNotBlank()) {
+            out += try {
+                val state = ha.state(cfg.circuitSwitchEntity).path("state").asText("unknown")
+                if (state == "on") CheckResult.pass(layer, "Show circuit relay", "Shelly", "on")
+                else CheckResult.fail(layer, "Show circuit relay", "Shelly", "show circuit relay is $state: nothing on the circuit has power")
+            } catch (e: Exception) {
+                CheckResult.warn(layer, "Show circuit relay", "Shelly", "relay state not readable (${e.brief()})")
+            }
+        }
+
         if (cfg.currentEntity.isNotBlank()) {
             out += reading(cfg.currentEntity, "Show circuit current") { amps, _ -> currentResult(amps, ctx) }
+        } else if (cfg.powerEntity.isNotBlank()) {
+            out += reading(cfg.powerEntity, "Show circuit power") { watts, _ -> currentResult(watts / NOMINAL_VOLTS, ctx) }
         }
 
         for ((label, entity) in cfg.plugs) {
