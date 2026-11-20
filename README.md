@@ -22,6 +22,7 @@ This app answers that question, and can fix the drift for you:
 
 - **Validate** — upload your xLights show's config, and it live-checks every controller against its actual WLED device: LED count, segment ranges, and which segments should be off ("null" models).
 - **Fix** — push the corrected segment layout to a device in one click (or in bulk).
+  After any segment change the board's boot preset is re-saved with the new segment bounds (keeping its own look), because WLED rebuilds default segments at every power-up and only a boot preset puts custom ones back. Turn off with `xlights.boot-preset-sync=false`.
 - **Never lose a config again** — every fix is preceded by an automatic backup of that device's `cfg.json` and `presets.json` (network config + presets/playlists), because segment fixes used to be applied blind with no way to recover if something went wrong. Manual backup/restore is available any time, not just around fixes.
 - **Start fresh** — "Clear All Controllers" resets every reachable WLED device to its own hardware-default segments and wipes all locally stored backups and the uploaded xLights config in one confirmed action, for when a season's layout is retired and you want a clean slate. There's no backup-before-wipe here — it's deliberately final.
 

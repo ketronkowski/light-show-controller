@@ -4,6 +4,7 @@ import com.ketronkowski.xlights.domain.*
 import com.ketronkowski.xlights.fpp.FppApiClient
 import com.ketronkowski.xlights.wled.WledApiClient
 import com.ketronkowski.xlights.wled.WledBackupService
+import com.ketronkowski.xlights.wled.WledBootPresetSync
 import com.ketronkowski.xlights.wled.WledDiscovery
 import com.ketronkowski.xlights.wled.dto.WledSegmentPatch
 import com.ketronkowski.xlights.wled.dto.WledStatePatch
@@ -136,6 +137,30 @@ class ValidationServiceTest {
         val order = inOrder(backupService, apiClient)
         order.verify(backupService).backup(perfectDevice.copy(segments = perfectDevice.segments.drop(1)))
         order.verify(apiClient).patchState(any(), any())
+    }
+
+    @Test
+    fun `fix saves the boot preset after changing segments and reports a failed save`() {
+        val apiClient = mock<WledApiClient>()
+        val sync = mock<WledBootPresetSync>()
+        val device = perfectDevice.copy(segments = perfectDevice.segments.drop(1))
+        whenever(sync.sync(device.ipAddress)).thenThrow(IllegalStateException("boom"))
+        val service = ValidationService(mock<XLightsConfigParser>(), mock<WledDiscovery>(), apiClient, mock<WledBackupService>(), mock<FppApiClient>(), sync)
+
+        val errors = service.fix(buildReport(listOf(controller), listOf(device)))
+
+        val order = inOrder(apiClient, sync)
+        order.verify(apiClient).patchState(any(), any())
+        order.verify(sync).sync(device.ipAddress)
+        assertTrue(errors.getValue("garage-wled").contains("boot preset was not saved"))
+    }
+
+    @Test
+    fun `fix leaves the boot preset alone when nothing changed`() {
+        val sync = mock<WledBootPresetSync>()
+        val service = ValidationService(mock<XLightsConfigParser>(), mock<WledDiscovery>(), mock<WledApiClient>(), mock<WledBackupService>(), mock<FppApiClient>(), sync)
+        service.fix(buildReport(listOf(controller), listOf(perfectDevice)))
+        verify(sync, never()).sync(any())
     }
 
     @Test
