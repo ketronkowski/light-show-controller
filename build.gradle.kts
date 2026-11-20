@@ -25,6 +25,7 @@ dependencies {
     implementation(libs.spring.boot.starter)
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.mail)
     implementation(libs.jackson.dataformat.xml)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.jackson.datatype.jsr310)

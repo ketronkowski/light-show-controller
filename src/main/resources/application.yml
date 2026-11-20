@@ -23,6 +23,12 @@ xlights:
     username: ${FPP_USERNAME:admin}
     password: ${FPP_PASSWORD:}
 
+# Daily pre-show check (see docs/preshow.md). Off by default; every site-specific
+# value (hosts, Home Assistant entities, URLs, email) comes from the deployment.
+preshow:
+  enabled: false
+  zone: America/New_York
+
 management:
   endpoints:
     web:
@@ -40,3 +46,4 @@ logging:
     com.ketronkowski.xlights.wled: INFO
     com.ketronkowski.xlights.fpp: INFO
     com.ketronkowski.xlights.web: INFO
+    com.ketronkowski.xlights.preshow: INFO

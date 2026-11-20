@@ -9,6 +9,7 @@ spring-boot-bom            = { module = "org.springframework.boot:spring-boot-de
 spring-boot-starter        = { module = "org.springframework.boot:spring-boot-starter" }
 spring-boot-starter-web    = { module = "org.springframework.boot:spring-boot-starter-web" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-mail   = { module = "org.springframework.boot:spring-boot-starter-mail" }
 spring-boot-starter-test   = { module = "org.springframework.boot:spring-boot-starter-test" }
 jackson-dataformat-xml     = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-xml" }
 jackson-module-kotlin      = { module = "com.fasterxml.jackson.module:jackson-module-kotlin" }
