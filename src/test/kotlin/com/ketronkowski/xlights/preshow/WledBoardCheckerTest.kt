@@ -35,4 +35,14 @@ class WledBoardCheckerTest {
         assertEquals(listOf("A", "B"), r.map { it.target })
         assertTrue(r.all { it.outcome == Outcome.WARN })
     }
+
+    @Test
+    fun `only a visibly lit board counts, not one that is merely off its boot preset`() {
+        val black = """{"on":true,"bri":128,"ps":-1,"seg":[{"on":true,"fx":0,"col":[[0,0,0],[0,0,0],[0,0,0]]},{"on":false,"fx":0,"col":[[255,0,0]]}]}"""
+        assertEquals(0, checker.litSegments(json(black)))
+        val lit = """{"on":true,"bri":128,"ps":-1,"seg":[{"on":true,"fx":0,"col":[[255,160,0],[0,0,0]]},{"on":true,"fx":9,"col":[[0,0,0]]},{"on":true,"fx":0,"col":[[0,0,0]]}]}"""
+        assertEquals(2, checker.litSegments(json(lit)))
+        val masterOff = """{"on":false,"bri":128,"seg":[{"on":true,"fx":9,"col":[[255,0,0]]}]}"""
+        assertEquals(0, checker.litSegments(json(masterOff)))
+    }
 }
