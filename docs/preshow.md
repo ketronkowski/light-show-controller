@@ -14,7 +14,7 @@ ready. It never changes anything: it only reads status.
 | Boards | Firmware | | not `preshow.wled.expected-firmware` |
 | Boards | Restarts in the last 24 h | | a board restarted on its own (boards powering up together count as one circuit power-up and pass) |
 | Boards | Free memory, WiFi signal | | free heap under 30 KB, RSSI under -75 dBm (WiFi boards only) |
-| Boards | Pre-show state | | not on the boot preset, nightlight on, or receiving live data before the show / from something other than FPP |
+| Boards | Pre-show state | | visibly lit (color or effect) before the show, nightlight on, or receiving live data before the show / from something other than FPP |
 | Boards | Hardening | | OTA lock off, ArduinoOTA on, fallback AP not button-only |
 | FPP | Answering, fppd running, scheduler enabled | any fails | |
 | FPP | Tonight's schedule | no show playlist covering show start | |

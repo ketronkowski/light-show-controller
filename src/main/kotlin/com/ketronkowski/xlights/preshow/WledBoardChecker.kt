@@ -115,9 +115,14 @@ class WledBoardChecker(
                 out += CheckResult.warn(layer, "Show data", name, "already receiving live data before the show${if (source.isNotBlank()) " from $source" else ""}")
             }
         } else if (s.state != null && cfg.expectedPreset > 0 && ctx.beforeShow) {
-            val ps = s.state.path("ps").asInt(-1)
-            if (ps != cfg.expectedPreset) {
-                out += CheckResult.warn(layer, "Pre-show state", name, "on preset $ps, not the boot preset ${cfg.expectedPreset} (Black)")
+            // Being off the boot preset is normal (FPP, the app or an effect change all clear
+            // it); only a board that is visibly lit before the show is worth a warning.
+            val lit = litSegments(s.state)
+            if (lit > 0) {
+                val ps = s.state.path("ps").asInt(-1)
+                val where = if (ps > 0) "preset $ps" else "no preset"
+                out += CheckResult.warn(layer, "Pre-show state", name,
+                    "lit before the show: $lit segment(s) showing color or an effect ($where, boot preset is ${cfg.expectedPreset})")
             }
             if (s.state.path("nl").path("on").asBoolean(false)) {
                 out += CheckResult.warn(layer, "Pre-show state", name, "nightlight timer is on")
@@ -188,4 +193,13 @@ class WledBoardChecker(
 
     private fun resolve(host: String): String =
         runCatching { InetAddress.getByName(host).hostAddress }.getOrDefault(host)
+
+    /** Segments that are visibly lit: board on with brightness, segment on, and a color or a moving effect. */
+    internal fun litSegments(state: JsonNode): Int {
+        if (!state.path("on").asBoolean(true) || state.path("bri").asInt(0) == 0) return 0
+        return state.path("seg").count { seg ->
+            seg.path("on").asBoolean(true) && seg.path("bri").asInt(255) > 0 &&
+                (seg.path("fx").asInt(0) != 0 || seg.path("col").path(0).any { it.asInt(0) > 0 })
+        }
+    }
 }
