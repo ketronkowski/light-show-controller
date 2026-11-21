@@ -11,7 +11,10 @@ import com.ketronkowski.xlights.domain.XLightsModel
 //  2. Always: each xLights model group named in the xlights.segment-groups setting,
 //     when its members all sit next to each other on this controller, becomes one
 //     segment named after the group ("KET - Yew Left" → Yew Left Top/Middle/Bottom).
-//  3. Only when the controller still has more segments than WLED allows: any other
+//  3. Always: back-to-back null models (gaps that stay dark) become one segment,
+//     named after all of them ("Null-Front Door-Post + Null-LNL-Pre"). Saves WLED
+//     segments, which some boards run short of (Octa6 sits at the 32 limit).
+//  4. Only when the controller still has more segments than WLED allows: any other
 //     group of adjacent models on this controller, merged the same way. Just enough
 //     groups are merged to fit, so controllers under the limit are left alone.
 internal object SegmentGrouping {
@@ -38,6 +41,7 @@ internal object SegmentGrouping {
             used += run.groupName
             entries = apply(entries, run)
         }
+        entries = mergeAdjacentNulls(entries)
         if (maxSegments == null) return entries.map { it.model }
 
         while (entries.size > maxSegments) {
@@ -53,6 +57,28 @@ internal object SegmentGrouping {
             entries = apply(entries, pick)
         }
         return entries.map { it.model }
+    }
+
+    // Consecutive null entries whose channels touch become one dark segment.
+    private fun mergeAdjacentNulls(entries: List<Entry>): List<Entry> {
+        val result = mutableListOf<Entry>()
+        var run = mutableListOf<Entry>()
+        fun flush() {
+            if (run.size > 1) result.add(merge(run.joinToString(" + ") { it.model.name }, run)) else result.addAll(run)
+            run = mutableListOf()
+        }
+        for (e in entries) {
+            val prev = run.lastOrNull()
+            val touches = prev != null && prev.model.startChannel + prev.model.channelCount == e.model.startChannel
+            if (e.model.isNull && (prev == null || touches)) {
+                run += e
+            } else {
+                flush()
+                if (e.model.isNull) run += e else result += e
+            }
+        }
+        flush()
+        return result
     }
 
     private fun apply(entries: List<Entry>, run: Run): List<Entry> =

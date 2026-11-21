@@ -121,4 +121,33 @@ class SegmentGroupingTest {
 
         assertEquals(3, SegmentGrouping.effectiveModels(c, maxSegments = 32, alwaysMerge = setOf("Yews")).size)
     }
+
+    @Test
+    fun `back-to-back nulls always become one dark segment`() {
+        val c = controller(listOf("Front Door", "Null-Front Door-Post", "Null-LNL-Pre", "Window - LNL", "Null-LNL-Post", "Null-LFL-Pre", "Window - LFL"))
+
+        val result = SegmentGrouping.effectiveModels(c, maxSegments = 32)
+
+        assertEquals(
+            listOf("Front Door", "Null-Front Door-Post + Null-LNL-Pre", "Window - LNL", "Null-LNL-Post + Null-LFL-Pre", "Window - LFL"),
+            result.map { it.name },
+        )
+        assertEquals(60, result[1].channelCount)
+        assertEquals(31, result[1].startChannel)
+        assertEquals(true, result[1].isNull)
+    }
+
+    @Test
+    fun `a single null between props and nulls with a channel gap stay separate`() {
+        val models = listOf(
+            XLightsModel("Window - A", "Octa6", 1, 30, false),
+            XLightsModel("Null-A-Post", "Octa6", 31, 30, true),
+            XLightsModel("Null-B-Pre", "Octa6", 91, 30, true), // starts after a gap
+            XLightsModel("Window - B", "Octa6", 121, 30, false),
+        )
+        val c = XLightsController(name = "Octa6", ipAddress = "1.2.3.4", protocol = "DDP", totalChannels = 150, models = models)
+
+        assertEquals(listOf("Window - A", "Null-A-Post", "Null-B-Pre", "Window - B"),
+            SegmentGrouping.effectiveModels(c, maxSegments = 32).map { it.name })
+    }
 }
