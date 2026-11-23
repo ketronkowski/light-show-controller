@@ -91,6 +91,10 @@ data class PreShowProperties(
         val maxStandbyAmps: Double = 0.0,
         /** Label → switch entity id for the smart plugs feeding show boards. */
         val plugs: Map<String, String> = emptyMap(),
+        /** Plug label → the xLights controllers it powers, when they differ from the label (e.g. Octa5-8). */
+        val plugBoards: Map<String, List<String>> = emptyMap(),
+        /** Plug label → its power sensor in watts, for plugs that measure power. */
+        val plugPower: Map<String, String> = emptyMap(),
         /** input_boolean that turns scheduled runs off (kill switch). Blank = no toggle. */
         val enabledEntity: String = "",
         /** Sensor the app writes its latest result to, for dashboards and the "did not run" backstop. */

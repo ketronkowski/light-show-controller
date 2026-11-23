@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0d12" />
+  <title>Show Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="show.css" />
+</head>
+<body class="show-page">
+  <header class="sc-top">
+    <a href="./" class="sc-back" aria-label="Back to controllers">&larr;</a>
+    <h1>Show Control</h1>
+    <span id="scUpdated" class="sc-updated" aria-live="polite"></span>
+  </header>
+
+  <main class="sc-grid">
+    <section class="sc-card sc-now" aria-labelledby="nowTitle">
+      <h2 id="nowTitle">Now playing</h2>
+      <div id="nowBody" class="sc-body"><p class="sc-dim">Loading…</p></div>
+    </section>
+
+    <section class="sc-card" aria-labelledby="powerTitle">
+      <h2 id="powerTitle">Power</h2>
+      <div id="powerBody" class="sc-body"><p class="sc-dim">Loading…</p></div>
+    </section>
+
+    <section class="sc-card" aria-labelledby="plTitle">
+      <h2 id="plTitle">Playlists</h2>
+      <div id="plBody" class="sc-body"><p class="sc-dim">Loading…</p></div>
+    </section>
+
+    <section class="sc-card" aria-labelledby="boardsTitle">
+      <h2 id="boardsTitle">Boards</h2>
+      <div id="boardsBody" class="sc-body"><p class="sc-dim">Loading…</p></div>
+    </section>
+
+    <section class="sc-card" aria-labelledby="fppTitle">
+      <h2 id="fppTitle">FPP health</h2>
+      <div id="fppBody" class="sc-body"><p class="sc-dim">Loading…</p></div>
+    </section>
+  </main>
+
+  <script src="show.js"></script>
+</body>
+</html>
