@@ -1,4 +1,4 @@
-# Contributing to xLights ⇄ WLED
+# Contributing to Light Show Controller
 
 Thanks for taking an interest in this project! It's a small personal tool that grew out of one Christmas-light setup's very specific need, so it's maintained solo — but bug reports, ideas, and pull requests are genuinely welcome. This doc covers how to file an issue and how to send a PR.
 

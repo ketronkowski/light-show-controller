@@ -1,6 +1,8 @@
-# xLights ⇄ WLED
+# Light Show Controller
 
 Keep your [xLights](https://xlights.org/) show layout and your live [WLED](https://kno.wled.ge/) controllers honest with each other — from a browser, with an automatic safety net.
+
+*Formerly xLights ⇄ WLED.*
 
 <p>
   <a href="https://github.com/ketronkowski/xlights-wled-integration/actions/workflows/ci.yml"><img alt="CI/CD" src="https://img.shields.io/github/actions/workflow/status/ketronkowski/xlights-wled-integration/ci.yml?branch=main&label=CI%2FCD&logo=githubactions&logoColor=white"></a>
