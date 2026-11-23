@@ -103,6 +103,10 @@ data class PreShowProperties(
         val feedSourceEntity: String = "",
         /** Value of [feedSourceEntity] that means the iPhone. */
         val phoneSourceName: String = "phone",
+        /** binary_sensor that is on while the stream has working audio (live-01 status audio_ok). Blank = skip. */
+        val streamAudioEntity: String = "",
+        /** sensor with the stream's recent audio peak in dBFS (live-01 status audio_peak_db), shown in the report. */
+        val streamAudioPeakEntity: String = "",
     )
 
     data class WebCheck(
