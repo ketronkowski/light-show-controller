@@ -23,6 +23,7 @@ const filterInputs = {
   reachable: document.getElementById('filterReachable'),
   sync: document.getElementById('filterSync'),
   backup: document.getElementById('filterBackup'),
+  quick: document.getElementById('filterQuick'), // phone only: name or host
 };
 const showSelectedOnlyToggle = document.getElementById('showSelectedOnlyToggle');
 const selectionSummaryEl = document.getElementById('selectionSummary');
@@ -48,6 +49,20 @@ const progressDoneSummary = document.getElementById('progressDoneSummary');
 const progressCloseBtn = document.getElementById('progressCloseBtn');
 const BULK_TRIGGER_BUTTONS = [backupSelectedBtn, restoreSelectedBtn, updateSelectedBtn, setLookBtn, clearAllBtn];
 
+// Phone layout (see the Phone layout section below).
+const PHONE_MQ = window.matchMedia('(max-width: 760px), (max-height: 500px)');
+const LANDSCAPE_MQ = window.matchMedia('(max-height: 500px) and (orientation: landscape)');
+const phoneMoves = []; // { el, target, before, home }
+const moreMenuBtn = document.getElementById('moreMenuBtn');
+const moreMenu = document.getElementById('moreMenu');
+const selBar = document.getElementById('selBar');
+const selCount = document.getElementById('selCount');
+const selMenuBtn = document.getElementById('selMenuBtn');
+const selMenu = document.getElementById('selMenu');
+const filterSheet = document.getElementById('filterSheet');
+const filtersCountEl = document.getElementById('filtersCount');
+let lookPicker = 'fx'; // which list the phone pane shows: 'fx' | 'pal'
+
 let report = null;          // last ValidationReport
 let backups = [];           // last WledBackupRecord[]
 let pendingUpload = null;   // { networksFile, effectsFile, folderLabel }
@@ -65,9 +80,10 @@ const selected = new Set(); // controller names selected via card/list checkboxe
 //   also matching "Unreachable", and stays correct even though the badge
 //   text itself contains dynamic data (a segment count, a "N ago" timestamp).
 // All non-empty filters AND together.
-const filters = { name: '', host: '', reachable: '', sync: '', backup: '' };
-const FILTER_KIND = { name: 'regex', host: 'regex', reachable: 'select', sync: 'select', backup: 'select' };
-const FILTER_FIELD_KEY = { name: 'name', host: 'ip', reachable: 'reachableCategory', sync: 'syncCategory', backup: 'backupCategory' };
+const filters = { name: '', host: '', reachable: '', sync: '', backup: '', quick: '' };
+const FILTER_KIND = { name: 'regex', host: 'regex', reachable: 'select', sync: 'select', backup: 'select', quick: 'regex' };
+// quick (the phone search box) matches either the name or the host.
+const FILTER_FIELD_KEY = { name: ['name'], host: ['ip'], reachable: 'reachableCategory', sync: 'syncCategory', backup: 'backupCategory', quick: ['name', 'ip'] };
 
 // The last field-filtered row set — recomputed on every render. Used by
 // selectAll()/the selection summary so "select all" and "how many of my
@@ -143,6 +159,7 @@ function init() {
   });
 
   setView(currentView);
+  initPhoneLayout();
 
   // Prefer the File System Access API: it grants access to just the picked
   // folder without eagerly enumerating every nested file, so it doesn't
@@ -307,6 +324,7 @@ function renderCurrentView() {
 
   const rowsForDisplay = showSelectedOnly ? rows.filter(r => selected.has(r.name)) : rows;
   if (currentView === 'list') renderList(rowsForDisplay); else renderCards(rowsForDisplay);
+  updateFiltersCount();
 }
 
 function noRowsMessage() {
@@ -337,7 +355,7 @@ function applyFieldFilters(rows, filterValues) {
   const rowsMatching = rows.filter(row =>
     activeRegexFields.every(field => {
       const regex = compiled[field];
-      return regex ? regex.test(String(row[FILTER_FIELD_KEY[field]])) : false;
+      return regex ? FILTER_FIELD_KEY[field].some(key => regex.test(String(row[key]))) : false;
     }) &&
     activeSelectFields.every(([field, value]) => row[FILTER_FIELD_KEY[field]] === value)
   );
@@ -650,6 +668,7 @@ function updateBulkButtons() {
 }
 
 function updateSelectionSummary() {
+  updateSelBar();
   if (selected.size === 0) {
     selectionSummaryEl.textContent = '';
     selectionSummaryEl.classList.remove('has-hidden');
@@ -950,9 +969,12 @@ function initLookModal() {
     'lookBriVal', 'lookPowerStatus', 'lookFxSearch', 'lookFxList', 'lookOpts', 'lookColors', 'lookSlots', 'lookColor',
     'lookSwatches', 'lookColorsUnused', 'lookPalLabel', 'lookPalWrap', 'lookPalSearch', 'lookPalList',
     'lookPalUnused', 'lookRefreshBtn', 'lookCloseBtn', 'lookApplyBtn', 'lookTabs', 'lookTabMain', 'lookTabFlood',
-    'lookFloodSameRow', 'lookFloodSame', 'lookFloodNames', 'lookEditor'].forEach(id => { lookEls[id] = document.getElementById(id); });
+    'lookFloodSameRow', 'lookFloodSame', 'lookFloodNames', 'lookEditor', 'lookFxPick', 'lookPalPick', 'lookFxPanel',
+    'lookPalPanel', 'lookPane'].forEach(id => { lookEls[id] = document.getElementById(id); });
 
-  lookEls.lookCloseBtn.addEventListener('click', () => { lookEls.lookModal.hidden = true; });
+  lookEls.lookCloseBtn.addEventListener('click', () => { closeLookPicker(); lookEls.lookModal.hidden = true; });
+  [lookEls.lookFxPick, lookEls.lookPalPick].forEach(b => b.addEventListener('click', () => openLookPicker(b.dataset.picker)));
+  lookEls.lookModal.querySelectorAll('.look-picker-back').forEach(b => b.addEventListener('click', closeLookPicker));
   lookEls.lookRefreshBtn.addEventListener('click', () => loadLookCatalog(true));
   lookEls.lookApplyBtn.addEventListener('click', applyLook);
   lookEls.lookOn.addEventListener('change', () => setLookPower(lookEls.lookOn.checked));
@@ -1002,12 +1024,15 @@ function openLookModal() {
   lookEls.lookTargets.textContent = `${lookTargets.length} controller${lookTargets.length === 1 ? '' : 's'}: ${lookTargets.map(t => t.name).join(', ')}`;
   lookEls.lookFxSearch.value = '';
   lookEls.lookPalSearch.value = '';
+  lookPicker = 'fx';
+  closeLookPicker();
   lookEls.lookModal.hidden = false;
   loadLookCatalog(false);
 }
 
 async function loadLookCatalog(refresh) {
   lookEls.lookBody.hidden = true;
+  syncLookPane();
   lookEls.lookNotice.hidden = true;
   lookEls.lookLoading.hidden = false;
   lookEls.lookLoading.textContent = 'Loading effects from the controllers…';
@@ -1107,22 +1132,22 @@ function renderLookTabs() {
   lookEls.lookFloodSame.checked = lookFloodSame;
   lookEls.lookFloodNames.textContent = onFlood ? floods.join(', ') : '';
   lookEls.lookEditor.hidden = onFlood && lookFloodSame;
+  syncLookPane();
 }
 
 function renderLookNotice() {
   const nameFor = ip => (lookTargets.find(t => t.ip === ip) || { name: ip }).name;
   const lines = [];
   (lookCatalog.live || []).forEach(ip =>
-    lines.push(`${nameFor(ip)} is playing the show; the look won't show there until the show stops.`));
+    lines.push(`${nameFor(ip)} is playing the show: the look shows after it stops.`));
   const differing = Object.entries(lookCatalog.differing || {});
   if (differing.length && lookCatalog.current) {
     const firstIp = lookTargets.map(t => t.ip).find(ip => (lookCatalog.powered || {})[ip] !== undefined);
     const others = differing.map(([ip, fx]) => `${nameFor(ip)} (${fx})`).join(', ');
-    lines.push(`These controllers aren't all showing the same look. The settings below start from ` +
-      `${nameFor(firstIp)}'s (${lookCatalog.current.fx}); different: ${others}. Apply sets them all to the same look.`);
+    lines.push(`Looks differ. Starting from ${nameFor(firstIp)} (${lookCatalog.current.fx}); also showing: ${others}.`);
   }
   Object.entries(lookCatalog.unreachable || {}).forEach(([ip, err]) =>
-    lines.push(`Couldn't read effects from ${nameFor(ip)} (${err}); it's left out, and only effects the other controllers share are listed. Refresh to try again.`));
+    lines.push(`Couldn't reach ${nameFor(ip)} (${err}), so it's left out.`));
   lookEls.lookNotice.innerHTML = lines.map(l => `<div>${escapeHtml(l)}</div>`).join('');
   lookEls.lookNotice.hidden = lines.length === 0;
 }
@@ -1138,6 +1163,7 @@ function renderLook() {
   renderLookOptions();
   renderLookColors();
   renderLookPalettes();
+  syncLookPane();
 }
 
 function renderLookPower() {
@@ -1208,7 +1234,7 @@ function renderLookEffects() {
   if (names.length === 0) list.innerHTML = '<p class="look-unused">No matching effects</p>';
   names.forEach(name => {
     const fx = lookCatalog.effects.find(e => e.name === name);
-    list.appendChild(lookListItem(name, name === lookState.fx, () => pickEffect(fx)));
+    list.appendChild(lookListItem(name, name === lookState.fx, () => { pickEffect(fx); closeLookPickerIfOverlay(); }));
   });
   const sel = list.querySelector('.selected');
   if (sel) sel.scrollIntoView({ block: 'nearest' });
@@ -1307,6 +1333,8 @@ function renderLookPalettes() {
     lookState.pal = name;
     renderLookPalettes();
     renderLookColors();
+    syncLookPane();
+    closeLookPickerIfOverlay();
   })));
   const sel = list.querySelector('.selected');
   if (sel) sel.scrollIntoView({ block: 'nearest' });
@@ -1360,6 +1388,161 @@ function randomColor() {
   const h = Math.random() * 6;
   const x = Math.round(255 * (1 - Math.abs((h % 2) - 1)));
   return [[255, x, 0], [x, 255, 0], [0, 255, x], [0, x, 255], [x, 0, 255], [255, 0, x]][Math.floor(h)];
+}
+
+
+// ── Phone layout ─────────────────────────────────────────────────────────
+//
+// On a phone (narrow, or short in landscape) the toolbar's buttons move out of
+// the header: view/refresh into the top bar, rarely used ones behind ⋯, the
+// filters into a sheet, and the bulk actions into a bar that appears at the
+// bottom once something is selected. The Set Look Effect/Palette lists move
+// into their own pane. The same elements are moved (never copied), so every
+// listener and the disabled state keep working; on desktop they go back.
+
+
+function phoneMove(el, target, before = null) {
+  const home = document.createComment(`home of #${el.id}`);
+  el.parentNode.insertBefore(home, el);
+  phoneMoves.push({ el, target, before, home });
+}
+
+function applyPhoneLayout() {
+  const phone = PHONE_MQ.matches;
+  document.body.classList.toggle('phone', phone);
+  phoneMoves.forEach(({ el, target, before, home }) => {
+    if (phone) target.insertBefore(el, before);
+    else home.parentNode.insertBefore(el, home.nextSibling);
+  });
+  if (!phone) {
+    closeMenus();
+    filterSheet.hidden = true;
+    // The phone search box is hidden on desktop, so it must not keep filtering.
+    if (filters.quick) { filterInputs.quick.value = ''; filters.quick = ''; if (report) renderCurrentView(); }
+  }
+  updateSelBar();
+  syncLookPane();
+}
+
+function initPhoneLayout() {
+  const tools = document.getElementById('phoneTools');
+  [refreshBtn, cardViewBtn, listViewBtn].forEach(b => phoneMove(b, tools, moreMenuBtn));
+  phoneMove(document.getElementById('uploadRow'), document.getElementById('moreMenuUpload'));
+  phoneMove(clearAllBtn, document.getElementById('moreMenuDanger'));
+  phoneMove(document.getElementById('filterBar'), document.getElementById('filterSheetBody'));
+  [backupSelectedBtn, updateSelectedBtn, setLookBtn].forEach(b => phoneMove(b, document.getElementById('selBarActions')));
+  [selectAllBtn, selectNoneBtn, restoreSelectedBtn].forEach(b => phoneMove(b, selMenu));
+  phoneMove(lookEls.lookFxPanel, lookEls.lookPane);
+  phoneMove(lookEls.lookPalPanel, lookEls.lookPane);
+
+  moreMenuBtn.addEventListener('click', e => { e.stopPropagation(); toggleMenu(moreMenu, moreMenuBtn); });
+  selMenuBtn.addEventListener('click', e => { e.stopPropagation(); toggleMenu(selMenu, selMenuBtn); });
+  document.getElementById('menuSelectAllBtn').addEventListener('click', selectAll);
+  // A tap on a menu item runs it and closes the menu; a tap outside just closes it.
+  // Clicks inside the upload group (choose folder, upload) keep the menu open
+  // so the status next to them stays visible.
+  document.addEventListener('click', e => {
+    if (e.target.closest('#moreMenuUpload')) return;
+    closeMenus();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    closeMenus();
+    filterSheet.hidden = true;
+    if (!lookEls.lookModal.hidden && lookEls.lookPane.dataset.open && !LANDSCAPE_MQ.matches) closeLookPicker();
+  });
+
+  document.getElementById('filtersBtn').addEventListener('click', () => { closeMenus(); filterSheet.hidden = false; });
+  document.getElementById('filterDoneBtn').addEventListener('click', () => { filterSheet.hidden = true; });
+  filterSheet.addEventListener('click', e => { if (e.target === filterSheet) filterSheet.hidden = true; });
+  document.getElementById('filterClearBtn').addEventListener('click', () => {
+    ['name', 'host', 'reachable', 'sync', 'backup'].forEach(f => { filterInputs[f].value = ''; filters[f] = ''; });
+    showSelectedOnlyToggle.checked = false;
+    showSelectedOnly = false;
+    renderCurrentView();
+  });
+
+  // Keep the page behind any open dialog or sheet from scrolling under your thumb.
+  const overlays = [lookEls.lookModal, clearAllModal, progressModal, filterSheet];
+  const syncScrollLock = () => document.body.classList.toggle('scroll-locked', overlays.some(o => !o.hidden));
+  const observer = new MutationObserver(syncScrollLock);
+  overlays.forEach(o => observer.observe(o, { attributes: true, attributeFilter: ['hidden'] }));
+
+  PHONE_MQ.addEventListener('change', applyPhoneLayout);
+  LANDSCAPE_MQ.addEventListener('change', syncLookPane);
+  applyPhoneLayout();
+}
+
+function toggleMenu(menu, btn) {
+  const open = menu.hidden;
+  closeMenus();
+  menu.hidden = !open;
+  btn.setAttribute('aria-expanded', String(open));
+}
+
+function closeMenus() {
+  [[moreMenu, moreMenuBtn], [selMenu, selMenuBtn]].forEach(([m, b]) => {
+    m.hidden = true;
+    b.setAttribute('aria-expanded', 'false');
+  });
+}
+
+function updateSelBar() {
+  const n = selected.size;
+  const show = PHONE_MQ.matches && n > 0;
+  selBar.hidden = !show;
+  document.body.classList.toggle('has-sel-bar', show);
+  if (!show) { selMenu.hidden = true; selMenuBtn.setAttribute('aria-expanded', 'false'); }
+  const visibleNames = new Set(visibleRows.map(r => r.name));
+  const hidden = [...selected].filter(name => !visibleNames.has(name)).length;
+  selCount.textContent = hidden > 0 ? `${n} selected (${hidden} hidden)` : `${n} selected`;
+  selCount.classList.toggle('has-hidden', hidden > 0);
+}
+
+function updateFiltersCount() {
+  const n = ['name', 'host', 'reachable', 'sync', 'backup'].filter(f => filters[f]).length + (showSelectedOnly ? 1 : 0);
+  filtersCountEl.textContent = String(n);
+  filtersCountEl.hidden = n === 0;
+}
+
+// ── Set Look on a phone ──
+// Portrait: Effect and Palette are rows ("Chase 3 ›") that open a full-screen
+// list. Landscape: the list sits in a right-hand pane next to the settings.
+
+function openLookPicker(which) {
+  lookPicker = which;
+  lookEls.lookPane.dataset.open = which;
+  syncLookPane();
+  const sel = (which === 'pal' ? lookEls.lookPalList : lookEls.lookFxList).querySelector('.selected');
+  if (sel) sel.scrollIntoView({ block: 'center' });
+}
+
+function closeLookPicker() {
+  delete lookEls.lookPane.dataset.open;
+}
+
+function closeLookPickerIfOverlay() {
+  if (PHONE_MQ.matches && !LANDSCAPE_MQ.matches) closeLookPicker();
+}
+
+function syncLookPane() {
+  if (!lookEls.lookPane) return;
+  const ready = lookCatalog && lookState && !lookEls.lookBody.hidden && !lookEls.lookEditor.hidden;
+  const usesPalette = ready && currentEffect().controls.usesPalette;
+  if (lookPicker === 'pal' && !usesPalette) {
+    lookPicker = 'fx';
+    if (lookEls.lookPane.dataset.open) lookEls.lookPane.dataset.open = 'fx';
+  }
+  lookEls.lookPane.classList.toggle('empty', !ready);
+  lookEls.lookFxPanel.classList.toggle('active', lookPicker === 'fx');
+  lookEls.lookPalPanel.classList.toggle('active', lookPicker === 'pal');
+  [[lookEls.lookFxPick, 'fx'], [lookEls.lookPalPick, 'pal']].forEach(([b, k]) => {
+    b.classList.toggle('active', LANDSCAPE_MQ.matches && lookPicker === k);
+  });
+  if (ready) {
+    lookEls.lookFxPick.querySelector('.look-pick-value').textContent = lookState.fx;
+    lookEls.lookPalPick.querySelector('.look-pick-value').textContent = lookState.pal;
+  }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
