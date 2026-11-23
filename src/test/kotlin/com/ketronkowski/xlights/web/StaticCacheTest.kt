@@ -21,7 +21,7 @@ class StaticCacheTest {
         @JvmStatic
         @DynamicPropertySource
         fun dataDir(registry: DynamicPropertyRegistry) {
-            registry.add("xlights.data-dir") { Files.createTempDirectory("xlights-wled-cache-test").toString() }
+            registry.add("xlights.data-dir") { Files.createTempDirectory("light-show-cache-test").toString() }
         }
     }
 

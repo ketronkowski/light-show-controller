@@ -6,8 +6,8 @@ Thanks for taking an interest in this project! It's a small personal tool that g
 
 Open an issue! Here's how:
 
-1. Head to the [Issues tab](https://github.com/ketronkowski/xlights-wled-integration/issues) and click **New issue**.
-2. First, take a quick look through [existing issues](https://github.com/ketronkowski/xlights-wled-integration/issues?q=is%3Aissue) to see if someone's already reported the same thing — feel free to add a 👍 or a comment there instead of opening a duplicate.
+1. Head to the [Issues tab](https://github.com/ketronkowski/light-show-controller/issues) and click **New issue**.
+2. First, take a quick look through [existing issues](https://github.com/ketronkowski/light-show-controller/issues?q=is%3Aissue) to see if someone's already reported the same thing — feel free to add a 👍 or a comment there instead of opening a duplicate.
 3. Give it a clear, specific title (`"Restore Latest does nothing on Safari"` beats `"bug"`).
 4. In the description, the more context the better:
    - **Bug reports**: what you did, what you expected, what actually happened. Browser/OS if it's a UI issue, and the WLED firmware version if it's a device-communication issue. Screenshots are great.

@@ -23,7 +23,7 @@ class ValidationControllerTest {
         @JvmStatic
         @DynamicPropertySource
         fun dataDir(registry: DynamicPropertyRegistry) {
-            val dir = Files.createTempDirectory("xlights-wled-validate-test")
+            val dir = Files.createTempDirectory("light-show-validate-test")
             registry.add("xlights.data-dir") { dir.toString() }
         }
     }

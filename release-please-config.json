@@ -5,7 +5,7 @@
   "packages": {
     ".": {
       "release-type": "simple",
-      "package-name": "xlights-wled-integration",
+      "package-name": "light-show-controller",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
         {

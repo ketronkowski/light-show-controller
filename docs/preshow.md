@@ -83,7 +83,7 @@ preshow:
     plugs:
       Presents: switch.presents_plug
     enabled-entity: input_boolean.preshow_enabled
-    report-url: https://xlights-wled.example.net
+    report-url: https://light-show.example.net
   web:
     - name: Viewer page
       url: https://lights.example.org

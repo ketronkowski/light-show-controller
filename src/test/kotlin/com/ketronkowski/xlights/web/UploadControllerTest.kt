@@ -22,7 +22,7 @@ class UploadControllerTest {
         @JvmStatic
         @DynamicPropertySource
         fun dataDir(registry: DynamicPropertyRegistry) {
-            val dir = Files.createTempDirectory("xlights-wled-upload-test")
+            val dir = Files.createTempDirectory("light-show-upload-test")
             registry.add("xlights.data-dir") { dir.toString() }
         }
     }
