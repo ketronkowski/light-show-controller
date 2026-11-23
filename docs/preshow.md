@@ -126,7 +126,7 @@ automation:
       - action: notify.mobile_app_my_phone
         data:
           title: "Pre-show check did not run"
-          message: "No result from the 4:50 PM pre-show check. Check the xLights WLED app."
+          message: "No result from the 4:50 PM pre-show check. Check the Light Show Controller app."
 ```
 
 Limit the automation to show nights with an extra condition (a date range or a

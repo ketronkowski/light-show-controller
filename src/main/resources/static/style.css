@@ -81,8 +81,6 @@ h1::before {
   box-shadow: 0 0 10px 1px var(--ok);
 }
 
-h1 .glyph { color: var(--accent); font-weight: 400; }
-
 .tagline {
   font-family: var(--font-mono);
   font-size: 0.72rem;
