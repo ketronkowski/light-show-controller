@@ -82,7 +82,7 @@ let totalRowCount = 0; // unfiltered row count, so "0 matches" can distinguish a
 // in, turning it on would make Select All a no-op and would corrupt that count.
 let showSelectedOnly = false;
 
-const VIEW_STORAGE_KEY = 'xlights-wled-view';
+const VIEW_STORAGE_KEY = 'light-show-view';
 let currentView = localStorage.getItem(VIEW_STORAGE_KEY) === 'list' ? 'list' : 'card';
 
 // Set Look dialog state (see the Set Look section below).

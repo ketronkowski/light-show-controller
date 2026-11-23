@@ -5,13 +5,13 @@ Keep your [xLights](https://xlights.org/) show layout and your live [WLED](https
 *Formerly xLights ⇄ WLED.*
 
 <p>
-  <a href="https://github.com/ketronkowski/xlights-wled-integration/actions/workflows/ci.yml"><img alt="CI/CD" src="https://img.shields.io/github/actions/workflow/status/ketronkowski/xlights-wled-integration/ci.yml?branch=main&label=CI%2FCD&logo=githubactions&logoColor=white"></a>
+  <a href="https://github.com/ketronkowski/light-show-controller/actions/workflows/ci.yml"><img alt="CI/CD" src="https://img.shields.io/github/actions/workflow/status/ketronkowski/light-show-controller/ci.yml?branch=main&label=CI%2FCD&logo=githubactions&logoColor=white"></a>
   <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white">
   <img alt="Spring Boot" src="https://img.shields.io/badge/Spring%20Boot-4.1.0-6DB33F?logo=springboot&logoColor=white">
   <img alt="Java" src="https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white">
-  <img alt="Container" src="https://img.shields.io/badge/ghcr.io-xlights--wled--integration-2496ED?logo=docker&logoColor=white">
+  <img alt="Container" src="https://img.shields.io/badge/ghcr.io-light--show--controller-2496ED?logo=docker&logoColor=white">
   <img alt="Platforms" src="https://img.shields.io/badge/platform-arm64%20%7C%20amd64-informational">
-  <a href="https://github.com/ketronkowski/xlights-wled-integration/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/ketronkowski/xlights-wled-integration"></a>
+  <a href="https://github.com/ketronkowski/light-show-controller/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/ketronkowski/light-show-controller"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-personal%20homelab%20project-lightgrey">
   <a href="CONTRIBUTING.md"><img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen"></a>
 </p>
@@ -38,7 +38,7 @@ flowchart LR
         UI[Static UI<br/>index.html / app.js]
     end
 
-    subgraph "xlights-wled-integration (single Spring Boot pod)"
+    subgraph "light-show-controller (single Spring Boot pod)"
         API[REST API<br/>Upload / Validate / Fix / Backup]
         Parser[XLightsConfigParser]
         Validator[ValidationService]
@@ -134,13 +134,13 @@ Requires JDK 21 (the Gradle toolchain will provision one if you don't have it).
 
 ```bash
 ./gradlew bootJar
-java -jar build/libs/xlights-wled-integration.jar
+java -jar build/libs/light-show-controller.jar
 ```
 
 Open `http://localhost:8080`. By default it stores uploaded config + backups under `/data`; override that for local testing:
 
 ```bash
-XLIGHTS_DATA_DIR=/tmp/xlights-wled-data java -jar build/libs/xlights-wled-integration.jar
+XLIGHTS_DATA_DIR=/tmp/light-show-data java -jar build/libs/light-show-controller.jar
 ```
 
 Run the test suite with `./gradlew test`. One test class, `OctaValidationIT`, talks to real WLED hardware and a real xLights show directory (`~/xlights/Christmas 2023`) — it's gated behind `@EnabledIf` and automatically skips itself (rather than failing) whenever that directory doesn't exist, which is exactly the case in CI.
@@ -148,13 +148,13 @@ Run the test suite with `./gradlew test`. One test class, `OctaValidationIT`, ta
 ## Building the container image
 
 ```bash
-docker build -t xlights-wled-integration:local .
+docker build -t light-show-controller:local .
 ```
 
 The `Dockerfile` is a multi-stage build: the compile stage always runs on the build machine's *native* platform (via `--platform=$BUILDPLATFORM`) so Gradle never runs under slow QEMU emulation, and only the final ~180MB `eclipse-temurin:21-jre-alpine` runtime stage gets cross-built for the target platform. To build (and push) both architectures the way CI does:
 
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/ketronkowski/xlights-wled-integration:local --push .
+docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/ketronkowski/light-show-controller:local --push .
 ```
 
 ## Deploying to Kubernetes
@@ -173,25 +173,25 @@ If you're standing this up on your own cluster, here's what it expects:
 
 ## CI/CD
 
-Every push to `main` runs: **test** → **build & push** a multi-arch image to `ghcr.io/ketronkowski/xlights-wled-integration` → **patch** the GitOps deploy repo's image tag, which ArgoCD then syncs automatically.
+Every push to `main` runs: **test** → **build & push** a multi-arch image to `ghcr.io/ketronkowski/light-show-controller` → **patch** the GitOps deploy repo's image tag, which ArgoCD then syncs automatically.
 
-Every pull request also gets its own **live preview environment** — a build tagged `pr-<number>` is deployed to an isolated namespace on the homelab cluster and reachable at `https://xlights-wled.lab.ri.tronkowski.net/pr-<number>/`, completely separate from production. The link is posted as a comment on the PR, updates automatically on every push, and is torn down automatically (namespace, deploy-repo files, everything) as soon as the PR is closed — merged or not.
+Every pull request also gets its own **live preview environment** — a build tagged `pr-<number>` is deployed to an isolated namespace on the homelab cluster and reachable at `https://light-show.lab.ri.tronkowski.net/pr-<number>/`, completely separate from production. The link is posted as a comment on the PR, updates automatically on every push, and is torn down automatically (namespace, deploy-repo files, everything) as soon as the PR is closed — merged or not.
 
 `main` is a protected branch — every change, including the maintainer's own, goes through a pull request with passing CI before it merges.
 
 ## Releases
 
-Versioned releases are cut automatically by [release-please](https://github.com/googleapis/release-please) from [Conventional Commit](CONTRIBUTING.md#commit--pr-title-convention) PR titles — see the [Releases page](https://github.com/ketronkowski/xlights-wled-integration/releases) and [CHANGELOG.md](CHANGELOG.md) for what shipped in each version.
+Versioned releases are cut automatically by [release-please](https://github.com/googleapis/release-please) from [Conventional Commit](CONTRIBUTING.md#commit--pr-title-convention) PR titles — see the [Releases page](https://github.com/ketronkowski/light-show-controller/releases) and [CHANGELOG.md](CHANGELOG.md) for what shipped in each version.
 
 Each release publishes:
-- A semver-tagged multi-arch image — `ghcr.io/ketronkowski/xlights-wled-integration:X.Y.Z` (and a floating `:X` major tag) — alongside the always-current `:latest`/`:<commit-sha>` tags described above.
-- A standalone `xlights-wled-integration.jar` attached to the GitHub Release, with a `.sha256` checksum.
+- A semver-tagged multi-arch image — `ghcr.io/ketronkowski/light-show-controller:X.Y.Z` (and a floating `:X` major tag) — alongside the always-current `:latest`/`:<commit-sha>` tags described above.
+- A standalone `light-show-controller.jar` attached to the GitHub Release, with a `.sha256` checksum.
 
 To run a specific released version without Docker:
 
 ```bash
-curl -LO https://github.com/ketronkowski/xlights-wled-integration/releases/download/vX.Y.Z/xlights-wled-integration.jar
-java -jar xlights-wled-integration.jar
+curl -LO https://github.com/ketronkowski/light-show-controller/releases/download/vX.Y.Z/light-show-controller.jar
+java -jar light-show-controller.jar
 ```
 
 Note: the homelab deployment tracks the latest commit on `main` (`:<sha>`) via continuous GitOps deployment, not tagged releases — see [CI/CD](#cicd) above. Releases are for versioned artifacts/changelog, not what's actually running in the cluster.

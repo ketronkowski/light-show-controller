@@ -1,4 +1,4 @@
-rootProject.name = "xlights-wled-integration"
+rootProject.name = "light-show-controller"
 
 pluginManagement {
     repositories {

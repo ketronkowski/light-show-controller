@@ -16,6 +16,6 @@ WORKDIR /app
 # Commit the image was built from, shown in the UI footer.
 ARG GIT_SHA=unknown
 ENV APP_GIT_SHA=$GIT_SHA
-COPY --from=build /workspace/build/libs/xlights-wled-integration.jar app.jar
+COPY --from=build /workspace/build/libs/light-show-controller.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

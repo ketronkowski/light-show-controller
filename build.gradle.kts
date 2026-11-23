@@ -46,7 +46,7 @@ springBoot {
 }
 
 tasks.bootJar {
-    archiveFileName.set("xlights-wled-integration.jar")
+    archiveFileName.set("light-show-controller.jar")
 }
 
 tasks.jar {

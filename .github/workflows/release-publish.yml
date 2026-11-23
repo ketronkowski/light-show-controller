@@ -5,7 +5,7 @@ on:
     types: [published]
 
 env:
-  IMAGE: ghcr.io/ketronkowski/xlights-wled-integration
+  IMAGE: ghcr.io/ketronkowski/light-show-controller
 
 jobs:
   retag-image:
@@ -84,13 +84,13 @@ jobs:
       - name: Generate checksum
         run: |
           cd build/libs
-          sha256sum xlights-wled-integration.jar > xlights-wled-integration.jar.sha256
+          sha256sum light-show-controller.jar > light-show-controller.jar.sha256
 
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
-            build/libs/xlights-wled-integration.jar \
-            build/libs/xlights-wled-integration.jar.sha256 \
+            build/libs/light-show-controller.jar \
+            build/libs/light-show-controller.jar.sha256 \
             --clobber

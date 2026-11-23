@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE: ghcr.io/ketronkowski/xlights-wled-integration
+  IMAGE: ghcr.io/ketronkowski/light-show-controller
 
 jobs:
   # ── Test ──────────────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ jobs:
       - name: Update image tag
         run: |
           TAG="${{ github.sha }}"
-          FILE="deploy-repo/apps/xlights-wled-integration/env/main/values.yaml"
+          FILE="deploy-repo/apps/light-show-controller/env/main/values.yaml"
           yq -i ".image.tag = \"$TAG\"" "$FILE"
 
       - name: Commit and push
@@ -105,9 +105,9 @@ jobs:
           cd deploy-repo
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps/xlights-wled-integration/env/main/values.yaml
+          git add apps/light-show-controller/env/main/values.yaml
           git diff --cached --quiet && echo "No image tag changes" && exit 0
-          git commit -m "chore(xlights-wled-integration): deploy ${{ github.sha }}"
+          git commit -m "chore(light-show-controller): deploy ${{ github.sha }}"
           git push
 
   # ── Preview: Build & Push ────────────────────────────────────────────────
@@ -182,11 +182,11 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          cd deploy-repo/apps/xlights-wled-integration
+          cd deploy-repo/apps/light-show-controller
           rm -rf "env/pr-$PR"
           cp -r env/_pr-template "env/pr-$PR"
           sed -i \
-            -e "s/__NAMESPACE__/xlights-wled-pr-$PR/g" \
+            -e "s/__NAMESPACE__/light-show-pr-$PR/g" \
             -e "s/__PR_NUMBER__/$PR/g" \
             -e "s/__IMAGE_TAG__/pr-$PR-$SHA/g" \
             "env/pr-$PR/values.yaml"
@@ -195,7 +195,7 @@ jobs:
           apiVersion: argoproj.io/v1alpha1
           kind: Application
           metadata:
-            name: xlights-wled-integration-pr-$PR
+            name: light-show-controller-pr-$PR
             namespace: argocd
             finalizers:
               - resources-finalizer.argocd.argoproj.io
@@ -204,10 +204,10 @@ jobs:
             source:
               repoURL: https://github.com/ketronkowski/deploy-repo
               targetRevision: HEAD
-              path: apps/xlights-wled-integration/env/pr-$PR
+              path: apps/light-show-controller/env/pr-$PR
             destination:
               server: https://kubernetes.default.svc
-              namespace: xlights-wled-pr-$PR
+              namespace: light-show-pr-$PR
             ignoreDifferences:
               - group: external-secrets.io
                 kind: ExternalSecret
@@ -228,9 +228,9 @@ jobs:
           cd deploy-repo
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "apps/xlights-wled-integration/env/pr-$PR" "apps/xlights-wled-integration/argocd/app_pr_$PR.yaml"
+          git add "apps/light-show-controller/env/pr-$PR" "apps/light-show-controller/argocd/app_pr_$PR.yaml"
           git diff --cached --quiet && echo "No preview changes" && exit 0
-          git commit -m "chore(xlights-wled-integration): deploy PR #$PR preview (${{ github.event.pull_request.head.sha }})"
+          git commit -m "chore(light-show-controller): deploy PR #$PR preview (${{ github.event.pull_request.head.sha }})"
           git push
 
       - name: Comment preview URL on PR
@@ -238,7 +238,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
         run: |
-          URL="https://xlights-wled.lab.ri.tronkowski.net/pr-$PR/"
+          URL="https://light-show.lab.ri.tronkowski.net/pr-$PR/"
           BODY="🔎 **Preview environment:** $URL
 
           Updates automatically on every push to this PR. Torn down automatically when the PR is closed."
@@ -269,7 +269,8 @@ jobs:
           cd deploy-repo
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git rm -r --ignore-unmatch "apps/xlights-wled-integration/env/pr-$PR" "apps/xlights-wled-integration/argocd/app_pr_$PR.yaml"
+          git rm -r --ignore-unmatch "apps/light-show-controller/env/pr-$PR" "apps/light-show-controller/argocd/app_pr_$PR.yaml" \
+            "apps/xlights-wled-integration/env/pr-$PR" "apps/xlights-wled-integration/argocd/app_pr_$PR.yaml"
           git diff --cached --quiet && echo "Nothing to clean up" && exit 0
-          git commit -m "chore(xlights-wled-integration): remove PR #$PR preview environment"
+          git commit -m "chore(light-show-controller): remove PR #$PR preview environment"
           git push
