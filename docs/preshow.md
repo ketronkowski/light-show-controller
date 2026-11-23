@@ -142,13 +142,14 @@ the feeder's audio input is alive. Home Assistant polls it, the pre-show check r
 (`preshow.ha.phone-feed-entity`, `preshow.ha.feed-source-entity`, `preshow.ha.stream-audio-entity`,
 `preshow.ha.stream-audio-peak-entity`), and automations push when the phone or the audio drops
 during the show. The pre-show check judges only `audio_ok`, not silence: before the show FPP is
-usually idle, so a quiet input is normal.
+usually idle, so a quiet input is normal. Keep one REST resource and poll at 60 s or slower:
+live-01 is the stream encoder, and frequent status polls have caused audio dropouts.
 
 ```yaml
 # packages/live_feed.yaml
 rest:
   - resource: http://192.168.4.10:9998/status
-    scan_interval: 15
+    scan_interval: 60
     timeout: 5
     binary_sensor:
       - name: Live iPhone feed
