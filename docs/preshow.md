@@ -135,7 +135,7 @@ Limit the automation to show nights with an extra condition (a date range or a
 ## iPhone camera feed (Home Assistant)
 
 The live stream box (live-01) serves `GET http://192.168.4.10:9998/status`:
-`{"phone_ready": bool, "show_ready": bool, "feed_source": "phone"|"camera-4k"|"camera-720p"|"none",
+`{"phone_ready": bool, "show_ready": bool, "feed_source": "phone"|"slate"|"none",
 "audio_device": bool, "audio_ok": bool, "audio_peak_db": float|null, "last_audio_at": "..."|null, "updated": "..."}`.
 `audio_ok` is true when the ClearClick USB adapter is present, the show path has an audio track and
 the feeder's audio input is alive. Home Assistant polls it, the pre-show check reads the HA entities
