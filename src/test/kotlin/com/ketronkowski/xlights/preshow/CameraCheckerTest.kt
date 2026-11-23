@@ -29,4 +29,15 @@ class CameraCheckerTest {
         assertEquals(Outcome.WARN, checker.feedResult("on", "seed-01").outcome)
         assertTrue(checker.feedResult("unavailable", null).message.contains("unreachable"))
     }
+
+    @Test
+    fun `stream audio passes when live and warns with the ClearClick hint when missing`() {
+        val live = checker.audioResult("on", -6.4)
+        assertEquals(Outcome.PASS, live.outcome)
+        assertEquals("audio input is live, peak -6 dBFS", live.message)
+        val dead = checker.audioResult("off", null)
+        assertEquals(Outcome.WARN, dead.outcome)
+        assertTrue(dead.message.contains("ClearClick"))
+        assertTrue(checker.audioResult("unavailable", null).message.contains("unreachable"))
+    }
 }

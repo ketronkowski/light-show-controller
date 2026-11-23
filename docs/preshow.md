@@ -135,9 +135,14 @@ Limit the automation to show nights with an extra condition (a date range or a
 ## iPhone camera feed (Home Assistant)
 
 The live stream box (live-01) serves `GET http://192.168.4.10:9998/status`:
-`{"phone_ready": bool, "show_ready": bool, "feed_source": "phone"|"camera-4k"|"camera-720p"|"none", "updated": "..."}`.
-Home Assistant polls it, the pre-show check reads the HA entities (`preshow.ha.phone-feed-entity`,
-`preshow.ha.feed-source-entity`), and an automation pushes when the phone drops during the show.
+`{"phone_ready": bool, "show_ready": bool, "feed_source": "phone"|"camera-4k"|"camera-720p"|"none",
+"audio_device": bool, "audio_ok": bool, "audio_peak_db": float|null, "last_audio_at": "..."|null, "updated": "..."}`.
+`audio_ok` is true when the ClearClick USB adapter is present, the show path has an audio track and
+the feeder's audio input is alive. Home Assistant polls it, the pre-show check reads the HA entities
+(`preshow.ha.phone-feed-entity`, `preshow.ha.feed-source-entity`, `preshow.ha.stream-audio-entity`,
+`preshow.ha.stream-audio-peak-entity`), and automations push when the phone or the audio drops
+during the show. The pre-show check judges only `audio_ok`, not silence: before the show FPP is
+usually idle, so a quiet input is normal.
 
 ```yaml
 # packages/live_feed.yaml
@@ -150,10 +155,18 @@ rest:
         unique_id: live_iphone_feed
         value_template: "{{ value_json.phone_ready }}"
         device_class: connectivity
+      - name: Live stream audio
+        unique_id: live_stream_audio
+        value_template: "{{ value_json.audio_ok }}"
+        device_class: sound
     sensor:
       - name: Live feed source
         unique_id: live_feed_source
         value_template: "{{ value_json.feed_source }}"
+      - name: Live stream audio peak
+        unique_id: live_stream_audio_peak
+        value_template: "{{ value_json.audio_peak_db }}"
+        unit_of_measurement: dBFS
 
 automation:
   - id: live_iphone_feed_dropped
@@ -187,6 +200,38 @@ automation:
           title: "iPhone camera back"
           message: "Stream is on {{ states('sensor.live_feed_source') }} again."
           data: { tag: live-iphone-feed }
+
+  - id: live_stream_audio_dropped
+    alias: Live stream audio dropped during show
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.live_stream_audio
+        to: ["off", "unavailable"]
+        for: "00:01:00"
+    condition:
+      - condition: time
+        after: "17:00:00"
+        before: "22:00:00"
+    action:
+      - service: notify.mobile_app_kevin_s_pixel
+        data:
+          title: "Stream audio dropped"
+          message: >-
+            The live stream has no audio. Check the ClearClick USB adapter on live-01
+            (replug it on another port if it dropped off USB) and the FPP audio lead.
+          data: { tag: live-stream-audio }
+      - wait_for_trigger:
+          - platform: state
+            entity_id: binary_sensor.live_stream_audio
+            to: "on"
+            for: "00:00:30"
+        timeout: "05:00:00"
+      - service: notify.mobile_app_kevin_s_pixel
+        data:
+          title: "Stream audio back"
+          message: "The live stream has audio again."
+          data: { tag: live-stream-audio }
 ```
 
 `mode: single` plus the wait means one drop sends one alert and one recovery notice; the shared
