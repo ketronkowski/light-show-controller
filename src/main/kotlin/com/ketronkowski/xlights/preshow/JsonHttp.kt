@@ -62,6 +62,7 @@ class JsonHttp(
 /** A short, readable reason for an exception, for check messages. */
 fun Throwable.brief(): String {
     if (this is org.springframework.web.client.HttpStatusCodeException) return "HTTP ${statusCode.value()}"
+    if (this is OutOfMemoryError) return "out of memory"
     val root = generateSequence(this) { it.cause }.last()
     return when (root) {
         is java.net.UnknownHostException -> "name not found"

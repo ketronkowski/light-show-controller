@@ -27,22 +27,26 @@ class Frame(val width: Int, val height: Int, val lum: FloatArray, val rgb: IntAr
             val f = (img.width / targetWidth.coerceAtLeast(1)).coerceAtLeast(1)
             val w = img.width / f
             val h = img.height / f
-            val src = img.getRGB(0, 0, w * f, h * f, null, 0, w * f)
             val lum = FloatArray(w * h)
             val rgb = if (keepRgb) IntArray(w * h) else null
             val n = (f * f).toFloat()
-            for (y in 0 until h) for (x in 0 until w) {
-                var r = 0; var g = 0; var b = 0
-                for (dy in 0 until f) {
-                    val row = (y * f + dy) * w * f + x * f
-                    for (dx in 0 until f) {
-                        val p = src[row + dx]
-                        r += (p shr 16) and 0xFF; g += (p shr 8) and 0xFF; b += p and 0xFF
+            // One band of f source rows at a time: a whole 4K frame as ints is 33 MB per picture.
+            val band = IntArray(w * f * f)
+            for (y in 0 until h) {
+                img.getRGB(0, y * f, w * f, f, band, 0, w * f)
+                for (x in 0 until w) {
+                    var r = 0; var g = 0; var b = 0
+                    for (dy in 0 until f) {
+                        val row = dy * w * f + x * f
+                        for (dx in 0 until f) {
+                            val p = band[row + dx]
+                            r += (p shr 16) and 0xFF; g += (p shr 8) and 0xFF; b += p and 0xFF
+                        }
                     }
+                    val i = y * w + x
+                    lum[i] = (0.299f * r + 0.587f * g + 0.114f * b) / n
+                    if (rgb != null) rgb[i] = ((r / n).toInt() shl 16) or ((g / n).toInt() shl 8) or (b / n).toInt()
                 }
-                val i = y * w + x
-                lum[i] = (0.299f * r + 0.587f * g + 0.114f * b) / n
-                if (rgb != null) rgb[i] = ((r / n).toInt() shl 16) or ((g / n).toInt() shl 8) or (b / n).toInt()
             }
             return Frame(w, h, lum, rgb)
         }

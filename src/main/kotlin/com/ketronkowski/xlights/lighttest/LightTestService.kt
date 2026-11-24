@@ -135,7 +135,8 @@ class LightTestService(
                 val cal = calibrate(controllers, host!!)
                 progress = LightTestStatus(busy = false, job = "calibration", done = cal.models.size, total = cal.models.size,
                     message = "calibrated: ${cal.visible.size} of ${cal.models.size} models in the camera's view")
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // Throwable, not Exception: an out-of-memory error must still say "failed" on the page.
                 log.warn("Light calibration failed", e)
                 progress = progress.copy(busy = false, message = "calibration failed: ${e.brief()}")
             } finally {
@@ -206,7 +207,7 @@ class LightTestService(
             progress = LightTestStatus(busy = false, job = "test", done = toTest.size, total = toTest.size,
                 message = "tested ${toTest.size} models: ${results.count { it.status == LightStatus.OFF }} off, ${results.count { it.status == LightStatus.DIM }} dim")
             return run
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             progress = progress.copy(busy = false, message = "test failed: ${e.brief()}")
             throw e
         } finally {
