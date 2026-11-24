@@ -236,3 +236,46 @@ automation:
 
 `mode: single` plus the wait means one drop sends one alert and one recovery notice; the shared
 `tag` replaces the alert on the phone when the recovery arrives.
+
+## Camera light test (Lights layer)
+
+Checks that every xLights model actually lights, using FPP's test mode and the UniFi Protect
+camera that watches the yard. FPP lights one model at a time (its xLights channels, in
+`preshow.lights.color`), the camera takes a picture, and the picture is compared with all-dark
+pictures taken every few models. Going through FPP tests the whole show path: FPP, its network
+outputs, the board, the port and the string. Nothing on the boards is changed, and test mode is
+always switched off at the end (also after a crash or restart mid-test).
+
+1. **Calibrate once, after dark**, with nobody in front of the camera: *Calibrate* on the
+   Pre-show page (or `POST /api/lighttest/calibrate`). It lights each model once (about 1.5 s
+   per model plus a dark picture every 8), learns where each model shows up in the picture, and
+   marks models the camera can't see as "not in view". The calibration picture
+   (`/api/lighttest/calibration.jpg`) boxes every model it found. Re-calibrate if the camera moves.
+2. **The camera pass** lights every model in view again and grades it against calibration,
+   scaled to the night's typical model so dusk light or camera exposure doesn't count as a fault:
+   - **OFF** (blocker): under `off-ratio` of the typical brightness gain. A dark port or board is
+     one row ("Octa6 port 2: none of its 5 models lit"), not one per model; nearly everything dark
+     is one row (no power or data, or the camera moved).
+   - **DIM** (warning): under `dim-ratio`, or under 60% of its usual lit area (part of a string out).
+   - The report shows every model lit at once, boxed green / yellow / red.
+3. **Later passes** (final, last look) repeat the camera result for `result-max-age-hours`, so the
+   4:50 PM GO / NO-GO includes it without lighting anything again.
+
+Guards: it never lights while FPP is playing, or on show nights between `quiet-start`
+(default: show start) and `quiet-end` (22:30).
+
+```yaml
+preshow:
+  passes:
+    - { name: camera, cron: "0 35 16 * * *", layers: [Lights] }
+    # ...the other passes as before
+  lights:
+    protect-url: https://192.168.1.1        # UniFi console
+    protect-api-key: ${PROTECT_API_KEY}      # Protect integration API key (X-API-KEY)
+    camera-id: 6aeddfe003347603e4007b51       # the camera's Protect id
+    color: "#808080"
+    settle-ms: 900       # the light reaches Protect's snapshot 0.3-0.6 s after FPP lights it
+    ignore-models: []
+```
+
+The app needs HTTPS to the console and HTTP to FPP from the cluster.

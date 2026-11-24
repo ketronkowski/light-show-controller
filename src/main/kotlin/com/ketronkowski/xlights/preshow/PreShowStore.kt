@@ -51,10 +51,26 @@ class PreShowStore(
 
     fun latest(): PreShowRun? = list(1).firstOrNull()
 
+    /** Saves a file that belongs to a run (e.g. the light test picture) next to it. */
+    fun saveAttachment(id: String, name: String, bytes: ByteArray) {
+        val file = attachmentFile(id, name) ?: return
+        Files.createDirectories(runsDir)
+        Files.write(file, bytes)
+    }
+
+    fun attachment(id: String, name: String): ByteArray? =
+        attachmentFile(id, name)?.takeIf { it.exists() }?.let { Files.readAllBytes(it) }
+
+    private fun attachmentFile(id: String, name: String): Path? {
+        val safe = Regex("[A-Za-z0-9_.-]+")
+        if (!id.matches(safe) || !name.matches(safe) || name.startsWith(".")) return null
+        return runsDir.resolve("$id-$name")
+    }
+
     fun prune(keepDays: Long) {
         if (!runsDir.exists()) return
         val cutoff = Instant.now().minus(Duration.ofDays(keepDays))
-        runsDir.listDirectoryEntries("*.json")
+        runsDir.listDirectoryEntries()
             .filter { it.getLastModifiedTime().toInstant().isBefore(cutoff) }
             .forEach { runCatching { Files.delete(it) } }
     }

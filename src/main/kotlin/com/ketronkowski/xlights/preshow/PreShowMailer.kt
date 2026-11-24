@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component
 class PreShowMailer(
     private val props: PreShowProperties,
     private val renderer: ReportRenderer,
+    private val store: PreShowStore,
 ) {
     private val log = LoggerFactory.getLogger(PreShowMailer::class.java)
 
@@ -31,11 +32,13 @@ class PreShowMailer(
                 javaMailProperties["mail.smtp.timeout"] = "20000"
             }
             val msg = sender.createMimeMessage()
-            MimeMessageHelper(msg, false, "UTF-8").apply {
+            val image = store.attachment(run.id, "lights.jpg")
+            MimeMessageHelper(msg, image != null, "UTF-8").apply {
                 setFrom(e.from)
                 setTo(e.to.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toTypedArray())
                 setSubject(renderer.subject(run))
-                setText(renderer.render(run), true)
+                setText(renderer.render(run, image?.let { "cid:lights" }), true)
+                if (image != null) addInline("lights", org.springframework.core.io.ByteArrayResource(image), "image/jpeg")
             }
             sender.send(msg)
             log.info("Pre-show report {} emailed", run.id)

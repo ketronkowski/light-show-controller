@@ -20,6 +20,8 @@ data class PreShowRunRequest(
     val pass: String = "manual",
     /** Send the push and the email like the 4:50 PM run does. */
     val notify: Boolean = false,
+    /** Only these layers; ["Lights"] runs the camera light test. Empty = a normal check. */
+    val layers: List<String> = emptyList(),
 )
 
 data class PreShowRunSummary(
@@ -41,7 +43,7 @@ class PreShowController(
     fun run(@RequestBody(required = false) req: PreShowRunRequest?): ResponseEntity<PreShowRun> {
         val r = req ?: PreShowRunRequest()
         return try {
-            ResponseEntity.ok(service.run(r.pass.take(40), if (r.notify) NotifyPolicy.ALWAYS else NotifyPolicy.QUIET))
+            ResponseEntity.ok(service.run(r.pass.take(40), if (r.notify) NotifyPolicy.ALWAYS else NotifyPolicy.QUIET, r.layers.take(10)))
         } catch (e: PreShowBusyException) {
             ResponseEntity.status(HttpStatus.CONFLICT).build()
         }
@@ -60,6 +62,14 @@ class PreShowController(
 
     /** The same HTML as the email, for the report page. */
     @GetMapping("/runs/{id}/report", produces = [MediaType.TEXT_HTML_VALUE])
-    fun report(@PathVariable id: String): ResponseEntity<String> =
-        store.get(id)?.let { ResponseEntity.ok(renderer.render(it)) } ?: ResponseEntity.notFound().build()
+    fun report(@PathVariable id: String): ResponseEntity<String> {
+        val run = store.get(id) ?: return ResponseEntity.notFound().build()
+        val image = if (store.attachment(id, "lights.jpg") != null) "lights.jpg" else null
+        return ResponseEntity.ok(renderer.render(run, image))
+    }
+
+    /** The camera light test picture of a run. */
+    @GetMapping("/runs/{id}/lights.jpg", produces = [MediaType.IMAGE_JPEG_VALUE])
+    fun lightsImage(@PathVariable id: String): ResponseEntity<ByteArray> =
+        store.attachment(id, "lights.jpg")?.let { ResponseEntity.ok(it) } ?: ResponseEntity.notFound().build()
 }

@@ -1,0 +1,288 @@
+package com.ketronkowski.xlights.lighttest
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.ketronkowski.xlights.domain.XLightsController
+import com.ketronkowski.xlights.preshow.PreShowProperties
+import com.ketronkowski.xlights.preshow.brief
+import com.ketronkowski.xlights.validation.ValidationService
+import com.ketronkowski.xlights.wled.WledApiClient
+import com.ketronkowski.xlights.xlights.XLightsConfigParser
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.event.EventListener
+import org.springframework.stereotype.Service
+import java.nio.file.Files
+import java.nio.file.Path
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.io.path.exists
+import kotlin.io.path.readText
+
+class LightTestBusyException : RuntimeException("the light test or calibration is already running")
+class LightTestAborted : RuntimeException("stopped from the page")
+
+/**
+ * The camera light test. FPP's test mode lights one xLights model at a time (so the
+ * whole show path is exercised: FPP, network, board, port, string), the Protect camera
+ * takes a picture, and each picture is compared with an all-dark one.
+ *
+ * Calibration (one dark night) learns where each model appears in the picture. The
+ * nightly test lights every visible model again and reports ON / DIM / OFF.
+ * Test mode is always stopped at the end, even on errors; a restart mid-test stops it too.
+ */
+@Service
+class LightTestService(
+    private val lighter: Lighter,
+    private val camera: Camera,
+    private val parser: XLightsConfigParser,
+    private val validation: ValidationService,
+    private val wled: WledApiClient,
+    private val props: PreShowProperties,
+    private val objectMapper: ObjectMapper,
+    @Value("\${xlights.data-dir}") dataDir: String,
+) {
+    private val log = LoggerFactory.getLogger(LightTestService::class.java)
+    private val root: Path = Path.of(dataDir, "lighttest")
+    private val calFile = root.resolve("calibration.json")
+    private val calImage = root.resolve("calibration.jpg")
+    private val lastRunFile = root.resolve("last-run.json")
+    private val lastRunImage = root.resolve("last-run.jpg")
+    /** Present while FPP is in test mode, so a restart can switch it off. */
+    private val activeMarker = root.resolve("active-fpp-host")
+    private val xlightsDir: Path = Path.of(dataDir, "xlights")
+    private val cfg get() = props.lights
+    private val zone get() = ZoneId.of(props.zone)
+
+    private val lock = ReentrantLock()
+    private val abort = AtomicBoolean(false)
+    @Volatile private var progress = LightTestStatus(busy = false)
+
+    // ── Status and stored results ──────────────────────────────────────────
+
+    fun status(): LightTestStatus {
+        val cal = calibration()
+        return progress.copy(
+            busy = lock.isLocked,
+            calibratedAt = cal?.createdAt,
+            calibratedModels = cal?.models?.size ?: 0,
+            visibleModels = cal?.visible?.size ?: 0,
+            configured = cfg.configured,
+        )
+    }
+
+    fun calibration(): Calibration? =
+        if (calFile.exists()) runCatching { objectMapper.readValue(calFile.readText(), Calibration::class.java) }.getOrNull() else null
+
+    fun calibrationImage(): ByteArray? = if (calImage.exists()) Files.readAllBytes(calImage) else null
+
+    fun lastRun(): LightRun? =
+        if (lastRunFile.exists()) runCatching { objectMapper.readValue(lastRunFile.readText(), LightRun::class.java) }.getOrNull() else null
+
+    fun lastRunImage(): ByteArray? = if (lastRunImage.exists()) Files.readAllBytes(lastRunImage) else null
+
+    fun requestAbort() {
+        abort.set(true)
+    }
+
+    /** Switches FPP's test mode off if a restart interrupted a test. */
+    @EventListener(ApplicationReadyEvent::class)
+    fun recoverAfterRestart() {
+        if (!activeMarker.exists()) return
+        val host = runCatching { activeMarker.readText().trim() }.getOrDefault("")
+        log.warn("Light test was interrupted by a restart; stopping FPP test mode on {}", host)
+        if (host.isNotBlank()) runCatching { lighter.stop(host) }.onFailure { log.warn("Could not stop FPP test mode: {}", it.brief()) }
+        runCatching { Files.deleteIfExists(activeMarker) }
+    }
+
+    // ── Guards ─────────────────────────────────────────────────────────────
+
+    /** Why lighting isn't allowed right now, or null when it is. */
+    fun blockedReason(fppHost: String?, now: Instant = Instant.now()): String? {
+        if (!cfg.configured) return "the camera isn't set up (preshow.lights)"
+        if (fppHost.isNullOrBlank()) return "no FPP address"
+        val local = now.atZone(zone)
+        val showNight = props.firstShowNight == null || !local.toLocalDate().isBefore(props.firstShowNight)
+        val quietStart = cfg.quietStart ?: props.showStart
+        val t = local.toLocalTime()
+        if (showNight && !t.isBefore(quietStart) && t.isBefore(cfg.quietEnd)) return "it's show time (no light test from $quietStart to ${cfg.quietEnd})"
+        val idle = try { lighter.idle(fppHost) } catch (e: Exception) { return "FPP isn't answering (${e.brief()})" }
+        if (!idle) return "FPP is playing"
+        return null
+    }
+
+    // ── Calibration ────────────────────────────────────────────────────────
+
+    /** Starts calibration in the background. Throws if busy, or with the reason lighting isn't allowed. */
+    fun startCalibration(): LightTestStatus {
+        val controllers = parser.parse(xlightsDir)
+        val host = fppHost(controllers)
+        blockedReason(host)?.let { throw IllegalStateException("Can't calibrate: $it") }
+        if (!lock.tryLock()) throw LightTestBusyException()
+        abort.set(false)
+        progress = LightTestStatus(busy = true, job = "calibration", message = "starting")
+        Thread.ofVirtual().name("light-calibration").start {
+            try {
+                val cal = calibrate(controllers, host!!)
+                progress = LightTestStatus(busy = false, job = "calibration", done = cal.models.size, total = cal.models.size,
+                    message = "calibrated: ${cal.visible.size} of ${cal.models.size} models in the camera's view")
+            } catch (e: Exception) {
+                log.warn("Light calibration failed", e)
+                progress = progress.copy(busy = false, message = "calibration failed: ${e.brief()}")
+            } finally {
+                lock.unlock()
+            }
+        }
+        return status()
+    }
+
+    internal fun calibrate(controllers: List<XLightsController>, host: String): Calibration {
+        val (targets, skipped) = targets(controllers, host)
+        require(targets.isNotEmpty()) { "no models to light (${skipped.values.firstOrNull() ?: "empty layout"})" }
+        val cals = mutableListOf<ModelCal>()
+        var size = 0 to 0
+        val composite = sweep(host, targets, "calibration") { t, lit, base ->
+            size = lit.width to lit.height
+            cals += LightAnalysis.calibrate(t, lit, base, cfg)
+        }
+        val cal = Calibration(Instant.now(), size.first, size.second, cfg.color, cals, skipped)
+        Files.createDirectories(root)
+        Files.writeString(calFile, objectMapper.writeValueAsString(cal))
+        composite?.let { Files.write(calImage, LightAnalysis.annotate(LightAnalysis.toImage(it, size.first, size.second), cals, null, size.first)) }
+        log.info("Light calibration saved: {} of {} models visible", cal.visible.size, cal.models.size)
+        return cal
+    }
+
+    // ── Nightly test ───────────────────────────────────────────────────────
+
+    /**
+     * Lights every calibrated, visible model and grades it. Returns a run with
+     * [LightRun.skippedBecause] set when lighting wasn't allowed. Saves it as the latest.
+     */
+    fun test(runId: String, controllers: List<XLightsController>, fppHost: String?): LightRun {
+        val started = Instant.now()
+        val cal = calibration()
+        fun skipped(why: String) = LightRun(runId, started, Instant.now(), emptyList(), why, cal?.createdAt)
+        if (cal == null) return skipped("not calibrated yet: run the calibration once after dark")
+        blockedReason(fppHost)?.let { return skipped(it) }
+        if (!lock.tryLock()) return skipped("a calibration or test is already running")
+        try {
+            abort.set(false)
+            progress = LightTestStatus(busy = true, job = "test", message = "starting")
+            val host = fppHost!!
+            // Light by today's channels (an FPP Connect may have moved a board), keyed by model name.
+            val (today, _) = targets(controllers, host)
+            val byName = today.associateBy { it.name }
+            val toTest = cal.visible.mapNotNull { c -> byName[c.name]?.let { c to it } }
+            val signals = mutableMapOf<String, Signal>()
+            val calByName = toTest.associate { it.second.name to it.first }
+            val composite = sweep(host, toTest.map { it.second }, "test") { t, lit, base ->
+                signals[t.name] = LightAnalysis.measure(calByName.getValue(t.name), lit, base, cfg)
+            }
+            // Models that vanished from the layout are reported as not in view rather than guessed at.
+            val (results, typical) = LightAnalysis.classify(cal.models, signals, cfg)
+            val run = LightRun(runId, started, Instant.now(), results, null, cal.createdAt, typical)
+            save(run, composite?.let {
+                LightAnalysis.annotate(LightAnalysis.toImage(it, cal.width, cal.height), cal.models,
+                    results.associate { r -> r.name to r.status }, cal.width)
+            })
+            progress = LightTestStatus(busy = false, job = "test", done = toTest.size, total = toTest.size,
+                message = "tested ${toTest.size} models: ${results.count { it.status == LightStatus.OFF }} off, ${results.count { it.status == LightStatus.DIM }} dim")
+            return run
+        } catch (e: Exception) {
+            progress = progress.copy(busy = false, message = "test failed: ${e.brief()}")
+            throw e
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    private fun save(run: LightRun, image: ByteArray?) {
+        Files.createDirectories(root)
+        Files.writeString(lastRunFile, objectMapper.writeValueAsString(run))
+        if (image != null) Files.write(lastRunImage, image) else Files.deleteIfExists(lastRunImage)
+    }
+
+    // ── Shared machinery ───────────────────────────────────────────────────
+
+    fun fppHost(controllers: List<XLightsController>): String? =
+        props.fpp.host.ifBlank { null } ?: controllers.firstOrNull { it.isFpp }?.ipAddress
+
+    /** Every model on a show board, with its FPP channels and board output. */
+    internal fun targets(controllers: List<XLightsController>, fppHost: String): Pair<List<ModelTarget>, Map<String, String>> {
+        val starts = lighter.controllerStarts(fppHost)
+        val fppIp = FppTester.resolve(fppHost)
+        val targets = mutableListOf<ModelTarget>()
+        val skipped = linkedMapOf<String, String>()
+        for (c in controllers) {
+            if (c.isFpp || c.ipAddress.isNullOrBlank()) continue
+            if (props.wled.ignore.any { it.equals(c.name, ignoreCase = true) }) continue
+            val ip = FppTester.resolve(c.ipAddress)
+            if (ip == fppIp) continue
+            val models = c.models.filter { !it.isNull && it.channelCount > 0 && cfg.ignoreModels.none { n -> n.equals(it.name, ignoreCase = true) } }
+            val start = starts[ip]
+            if (start == null) {
+                models.forEach { skipped[it.name] = "FPP has no output to ${c.name}" }
+                continue
+            }
+            val busses = runCatching { wled.fetchDevice(c.ipAddress).busses }.getOrDefault(emptyList())
+            val bpp = validation.channelsPerPixel(c)
+            for (m in models) {
+                val pixel = (m.startChannel - 1) / bpp
+                val port = busses.indexOfFirst { pixel >= it.start && pixel < it.start + it.len }.takeIf { it >= 0 }?.plus(1)
+                targets += ModelTarget(m.name, c.name, start + m.startChannel - 1, start + m.startChannel - 1 + m.channelCount - 1, port)
+            }
+        }
+        return targets to skipped
+    }
+
+    /**
+     * Lights each target in turn and hands its picture, plus a dark baseline (the darker
+     * of the all-off pictures before and after its block), to [onModel]. Returns the
+     * brightest-of picture of everything that lit, for the report.
+     */
+    private fun sweep(host: String, targets: List<ModelTarget>, job: String, onModel: (ModelTarget, Frame, Frame) -> Unit): IntArray? {
+        Files.createDirectories(root)
+        Files.writeString(activeMarker, host)
+        var composite: IntArray? = null
+        try {
+            fun shot(): Frame {
+                val f = Frame.decode(camera.snapshot(), cfg.analysisWidth, keepRgb = true)
+                return f
+            }
+            fun dark(): Frame {
+                lighter.stop(host)
+                Thread.sleep(cfg.settleMs)
+                return shot()
+            }
+            var before = dark()
+            val block = mutableListOf<Pair<ModelTarget, Frame>>()
+            for ((i, t) in targets.withIndex()) {
+                if (abort.get()) throw LightTestAborted()
+                progress = progress.copy(job = job, done = i, total = targets.size, message = "lighting ${t.name} (${t.where})")
+                lighter.light(host, t.firstChannel, t.lastChannel, cfg.color)
+                Thread.sleep(cfg.settleMs)
+                val lit = shot()
+                composite = composite ?: IntArray(lit.width * lit.height)
+                lit.rgb?.let { LightAnalysis.maxInto(composite!!, it) }
+                block += t to Frame(lit.width, lit.height, lit.lum)
+                if (block.size >= cfg.darkEvery.coerceAtLeast(1) || i == targets.lastIndex) {
+                    val after = dark()
+                    val base = Frame.min(before, after)
+                    for ((bt, bf) in block) onModel(bt, bf, base)
+                    block.clear()
+                    before = after
+                }
+            }
+        } finally {
+            runCatching { lighter.stop(host) }.onFailure { log.error("Could not stop FPP test mode on {}: {}", host, it.brief()) }
+            runCatching { Files.deleteIfExists(activeMarker) }
+        }
+        return composite
+    }
+
+    internal fun today(): LocalDate = LocalDate.now(zone)
+}
