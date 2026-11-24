@@ -39,6 +39,7 @@
     <b>Camera light test</b>
     <button id="ltRun" type="button">Run light test</button>
     <button id="ltCal" type="button" class="quiet">Calibrate (after dark)</button>
+    <button id="ltMiss" type="button" class="quiet">Recalibrate missing models</button>
     <button id="ltStop" type="button" class="quiet" hidden>Stop</button>
     <a id="ltPic" href="api/lighttest/calibration.jpg" target="_blank" hidden>Calibration picture</a>
     <span id="ltMsg"></span>
@@ -94,7 +95,7 @@
       }
     };
 
-    const lt = { run: document.getElementById('ltRun'), cal: document.getElementById('ltCal'), stop: document.getElementById('ltStop'),
+    const lt = { run: document.getElementById('ltRun'), cal: document.getElementById('ltCal'), miss: document.getElementById('ltMiss'), stop: document.getElementById('ltStop'),
                  pic: document.getElementById('ltPic'), msg: document.getElementById('ltMsg') };
     let ltPoll = null, ltWasBusy = false, ltStarted = 0;
 
@@ -103,7 +104,8 @@
       if (!res.ok) return;
       const s = await res.json();
       document.getElementById('lights').hidden = !s.configured;
-      lt.run.disabled = lt.cal.disabled = s.busy;
+      lt.run.disabled = lt.cal.disabled = lt.miss.disabled = s.busy;
+      lt.miss.hidden = !s.calibratedAt || s.visibleModels >= s.calibratedModels;
       lt.stop.hidden = !s.busy;
       lt.pic.hidden = !s.calibratedAt;
       const cal = s.calibratedAt ? `Calibrated ${new Date(s.calibratedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}: ${s.visibleModels} of ${s.calibratedModels} models in view.` : 'Not calibrated yet.';
@@ -127,6 +129,7 @@
 
     lt.run.onclick = () => ltPost('run');
     lt.cal.onclick = () => { if (confirm('Calibrate now? Every model lights up one at a time for about 5 minutes. Do this after dark with nobody in front of the camera.')) ltPost('calibrate'); };
+    lt.miss.onclick = () => { if (confirm('Relight only the models the camera could not see last time (after a repair), and add them to the calibration? Takes under a minute. Do this after dark.')) ltPost('calibrate?missing=true'); };
     lt.stop.onclick = () => ltPost('stop');
 
     load();

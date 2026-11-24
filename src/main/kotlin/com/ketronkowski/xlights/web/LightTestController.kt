@@ -13,6 +13,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -28,10 +29,13 @@ class LightTestController(
     @GetMapping("/status")
     fun status(): LightTestStatus = lights.status()
 
-    /** Starts calibration in the background (lights every model once, a few minutes). */
+    /**
+     * Starts calibration in the background (lights every model once, a few minutes).
+     * `?missing=true` relights only the models the camera couldn't see last time and merges them in.
+     */
     @PostMapping("/calibrate")
-    fun calibrate(): ResponseEntity<Any> = try {
-        ResponseEntity.accepted().body(lights.startCalibration())
+    fun calibrate(@RequestParam(defaultValue = "false") missing: Boolean): ResponseEntity<Any> = try {
+        ResponseEntity.accepted().body(lights.startCalibration(missingOnly = missing))
     } catch (e: LightTestBusyException) {
         ResponseEntity.status(HttpStatus.CONFLICT).body(mapOf("error" to e.message))
     } catch (e: IllegalStateException) {

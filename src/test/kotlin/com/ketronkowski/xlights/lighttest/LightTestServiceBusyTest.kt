@@ -52,3 +52,16 @@ class LightTestServiceBusyTest {
         assertTrue(http.parseLenient("").isObject)
     }
 }
+
+class LightCalibrationMergeTest {
+    private fun cal(name: String, visible: Boolean) = ModelCal(name, "Octa5", 3, 1, 3, visible)
+
+    @Test
+    fun `recalibrating missing models keeps the others and the layout order`() {
+        val previous = listOf(cal("Eaves - Garage", false), cal("Vertical - UFR", true), cal("Eaves - UFR", false), cal("Gone", true))
+        val fresh = listOf(cal("Eaves - Garage", true), cal("Eaves - UFR", true), cal("New", false))
+        val merged = LightTestService.merge(listOf("Eaves - Garage", "Vertical - UFR", "Eaves - UFR", "New"), fresh, previous)
+        assertEquals(listOf("Eaves - Garage", "Vertical - UFR", "Eaves - UFR", "New"), merged.map { it.name })
+        assertEquals(listOf(true, true, true, false), merged.map { it.visible })
+    }
+}
