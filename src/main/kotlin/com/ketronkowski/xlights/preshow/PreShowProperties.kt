@@ -34,6 +34,7 @@ data class PreShowProperties(
     val ha: HomeAssistant = HomeAssistant(),
     val web: List<WebCheck> = emptyList(),
     val email: Email = Email(),
+    val lights: LightTest = LightTest(),
     /** Run files older than this many days are deleted. */
     val keepDays: Long = 60,
 ) {
@@ -45,6 +46,11 @@ data class PreShowProperties(
         val pushAlways: Boolean = false,
         /** Email after every run of this pass; otherwise only when something failed. */
         val emailAlways: Boolean = false,
+        /**
+         * Only these layers run in this pass (e.g. ["Lights"] for the camera light test).
+         * Empty = every layer, with the light test reporting its latest result instead of lighting.
+         */
+        val layers: List<String> = emptyList(),
     )
 
     data class WledChecks(
@@ -112,6 +118,48 @@ data class PreShowProperties(
         /** sensor with the stream's recent audio peak in dBFS (live-01 status audio_peak_db), shown in the report. */
         val streamAudioPeakEntity: String = "",
     )
+
+    /**
+     * Camera light test: FPP's test mode lights one xLights model at a time and the
+     * UniFi Protect camera checks that it lit. Blank camera settings = the test is off.
+     */
+    data class LightTest(
+        /** UniFi console base URL, e.g. https://192.168.1.1. */
+        val protectUrl: String = "",
+        /** UniFi Protect integration API key (X-API-KEY). */
+        val protectApiKey: String = "",
+        /** Protect camera id of the camera that watches the show. */
+        val cameraId: String = "",
+        /** Accept the console's self-signed certificate. */
+        val insecureTls: Boolean = true,
+        /** Test color for every model, #RRGGBB. Dim enough to be easy on the power supplies. */
+        val color: String = "#808080",
+        /** Wait after lighting a model before taking the picture. */
+        val settleMs: Long = 900,
+        /** Take a dark (all-off) picture after this many models. */
+        val darkEvery: Int = 8,
+        /** Pictures are shrunk to this width for analysis (3840 / 4 = 960). */
+        val analysisWidth: Int = 960,
+        /** Brightness gain (0-255) that counts as "this pixel lit up". */
+        val maskThreshold: Double = 18.0,
+        /** A model smaller than this many clean analysis pixels counts as not in the camera's view. */
+        val minMaskPixels: Int = 30,
+        /** Bright specks smaller than this many connected pixels are ignored. */
+        val minComponentPixels: Int = 3,
+        /** Below this share of the night's typical brightness gain, a model is OFF. */
+        val offRatio: Double = 0.15,
+        /** Below this share (or under 60% of its usual lit area), a model is DIM / partly out. */
+        val dimRatio: Double = 0.5,
+        /** Model names to leave out of the test. */
+        val ignoreModels: List<String> = emptyList(),
+        /** The light test never lights anything from this time until [quietEnd] on show nights. */
+        val quietStart: java.time.LocalTime? = null,
+        val quietEnd: java.time.LocalTime = java.time.LocalTime.of(22, 30),
+        /** The daily result is reused by later passes for this many hours. */
+        val resultMaxAgeHours: Long = 3,
+    ) {
+        val configured: Boolean get() = protectUrl.isNotBlank() && protectApiKey.isNotBlank() && cameraId.isNotBlank()
+    }
 
     data class WebCheck(
         val name: String,

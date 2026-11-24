@@ -47,10 +47,10 @@ class PreShowService(
     private val running = ReentrantLock()
     private val zone get() = ZoneId.of(props.zone)
 
-    fun run(pass: String, policy: NotifyPolicy): PreShowRun {
+    fun run(pass: String, policy: NotifyPolicy, layers: List<String> = emptyList()): PreShowRun {
         if (!running.tryLock()) throw PreShowBusyException()
         try {
-            val run = execute(pass)
+            val run = execute(pass, layers)
             store.save(run)
             store.prune(props.keepDays)
             report(run, policy)
@@ -60,8 +60,13 @@ class PreShowService(
         }
     }
 
-    internal fun execute(pass: String): PreShowRun {
+    val busy: Boolean get() = running.isLocked
+
+    internal fun execute(pass: String, layers: List<String> = emptyList()): PreShowRun {
         val started = Instant.now()
+        val id = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").withZone(zone).format(started) + "-" + pass.replace(Regex("[^A-Za-z0-9-]"), "")
+        val selected = if (layers.isEmpty()) checkers
+            else checkers.filter { c -> layers.any { it.equals(c.layer, ignoreCase = true) } }
         val setup = mutableListOf<CheckResult>()
         val controllers: List<XLightsController> = try {
             parser.parse(xlightsDir)
@@ -82,14 +87,16 @@ class PreShowService(
             showStart = props.showStart,
             firstShowNight = props.firstShowNight,
             fppHost = props.fpp.host.ifBlank { null } ?: controllers.firstOrNull { it.isFpp }?.ipAddress,
+            runId = id,
+            layers = layers.toSet(),
         )
 
         val pool = Executors.newVirtualThreadPerTaskExecutor()
         val results = try {
-            checkers.map { c -> c to CompletableFuture.supplyAsync({ c.check(ctx) }, pool) }
+            selected.map { c -> c to CompletableFuture.supplyAsync({ c.check(ctx) }, pool) }
                 .flatMap { (c, f) ->
                     try {
-                        f.get(4, TimeUnit.MINUTES)
+                        f.get(c.timeoutMinutes, TimeUnit.MINUTES)
                     } catch (e: Exception) {
                         log.warn("Pre-show checker {} failed", c.layer, e)
                         listOf(CheckResult.fail(c.layer, "Check ran", c.layer, "the ${c.layer} check crashed or timed out (${(e.cause ?: e).brief()})"))
@@ -101,7 +108,6 @@ class PreShowService(
 
         val all = setup + results
         val finished = Instant.now()
-        val id = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").withZone(zone).format(started) + "-" + pass.replace(Regex("[^A-Za-z0-9-]"), "")
         return PreShowRun(
             id = id,
             pass = pass,

@@ -19,7 +19,13 @@ data class CheckContext(
     val fppHost: String?,
     /** First real show night. Before it, a missing show schedule is only a warning (dry runs). */
     val firstShowNight: LocalDate? = null,
+    /** This run's id, for files a check saves next to the run (e.g. the light test picture). */
+    val runId: String = "",
+    /** Layers this pass asked for by name. Empty = a normal pass with every layer. */
+    val layers: Set<String> = emptySet(),
 ) {
+    /** True when this pass asked for [layer] by name (e.g. the camera pass for "Lights"). */
+    fun requested(layer: String): Boolean = layers.any { it.equals(layer, ignoreCase = true) }
     val localNow: ZonedDateTime get() = now.atZone(zone)
     /** Before tonight's show start (pre-show passes), as opposed to during or after it. */
     val beforeShow: Boolean get() = localNow.toLocalTime().isBefore(showStart)
@@ -31,6 +37,8 @@ data class CheckContext(
 interface PreShowChecker {
     val layer: String
     fun check(ctx: CheckContext): List<CheckResult>
+    /** How long this layer may take before the run gives up on it. */
+    val timeoutMinutes: Long get() = 4
 }
 
 /** Human-friendly duration: "45 min", "5 h 10 min", "3 d 4 h". */

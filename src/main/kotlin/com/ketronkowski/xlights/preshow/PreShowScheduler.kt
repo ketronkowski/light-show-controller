@@ -46,7 +46,7 @@ class PreShowScheduler(
             return
         }
         try {
-            service.run(pass.name, NotifyPolicy(pass.pushAlways, pass.emailAlways))
+            service.run(pass.name, NotifyPolicy(pass.pushAlways, pass.emailAlways), pass.layers)
         } catch (e: PreShowBusyException) {
             log.warn("Pre-show '{}' skipped: another run is still going", pass.name)
         } catch (e: Exception) {

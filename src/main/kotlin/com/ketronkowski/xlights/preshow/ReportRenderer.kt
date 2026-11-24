@@ -13,13 +13,14 @@ import java.time.format.DateTimeFormatter
 class ReportRenderer(private val props: PreShowProperties) {
 
     private val layerIcons = mapOf(
-        "Setup" to "🧾", "Power" to "🔌", "Boards" to "💡", "FPP" to "🎵", "Camera" to "📷", "Web" to "🌐",
+        "Setup" to "🧾", "Power" to "🔌", "Boards" to "💡", "Lights" to "🎄", "FPP" to "🎵", "Camera" to "📷", "Web" to "🌐",
     )
 
     fun subject(run: PreShowRun): String =
         "Pre-show check — ${dateFmt().format(run.startedAt)} (${run.pass}): ${run.verdict.label}"
 
-    fun render(run: PreShowRun): String {
+    /** [lightsImage] is the camera light test picture's URL (a cid: link in the email), if the run has one. */
+    fun render(run: PreShowRun, lightsImage: String? = null): String {
         val zone = ZoneId.of(props.zone)
         val time = DateTimeFormatter.ofPattern("EEE MMM d, h:mm a").withZone(zone)
         val (bannerBg, bannerFg, icon) = when (run.verdict) {
@@ -43,6 +44,12 @@ class ReportRenderer(private val props: PreShowProperties) {
             sb.append(table(problems))
         }
 
+        if (lightsImage != null) {
+            sb.append(section("📸", "Camera light test"))
+            sb.append("""<p style="font-size:13px;color:#5f6368;margin:0 0 8px 0">Every model lit at once. Green = lit, yellow = dim or partly out, red = didn't light.</p>""")
+            sb.append("""<img src="${esc(lightsImage)}" alt="Camera light test" style="width:100%;border-radius:6px;display:block">""")
+        }
+
         val order = layerIcons.keys.toList()
         val layers = run.results.map { it.layer }.distinct()
             .sortedBy { order.indexOf(it).let { i -> if (i < 0) order.size else i } }
@@ -51,7 +58,7 @@ class ReportRenderer(private val props: PreShowProperties) {
             sb.append(section(layerIcons[layer] ?: "🔎", layer))
             sb.append(table(rows))
         }
-        sb.append("""<p style="font-size:12px;color:#5f6368;margin-top:24px">Read-only check. Nothing on the show was changed. Run id ${esc(run.id)}.</p>""")
+        sb.append("""<p style="font-size:12px;color:#5f6368;margin-top:24px">Nothing on the show was changed (the camera light test only uses FPP test mode, which it turns off). Run id ${esc(run.id)}.</p>""")
         sb.append("</div></body></html>")
         return sb.toString()
     }
