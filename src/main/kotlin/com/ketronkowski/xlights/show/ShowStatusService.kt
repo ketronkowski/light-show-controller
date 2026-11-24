@@ -128,13 +128,16 @@ class ShowStatusService(
     private fun readNumber(entity: String): Double? =
         runCatching { ha.state(entity).path("state").asText("").toDoubleOrNull() }.getOrNull()
 
-    /** One show-circuit power sample every 30 s, kept for an hour, for the page's sparkline. */
+    /** One show-circuit power/current/voltage sample every 30 s, kept for an hour, for the page's sparkline. */
     @Scheduled(fixedDelay = 30_000, initialDelay = 10_000)
     fun sample() {
         if (!ha.configured || props.ha.powerEntity.isBlank()) return
         val w = readNumber(props.ha.powerEntity) ?: return
+        val volts = props.ha.voltageEntity.ifBlank { null }?.let { readNumber(it) }
+        val amps = props.ha.currentEntity.ifBlank { null }?.let { readNumber(it) }
+            ?: w / (volts?.takeIf { it > 50 } ?: NOMINAL_VOLTS)
         val now = Instant.now()
-        history.addLast(PowerSample(now, w))
+        history.addLast(PowerSample(now, w, amps, volts))
         while (history.peekFirst()?.let { Duration.between(it.at, now) > HISTORY_SPAN } == true) history.pollFirst()
     }
 
