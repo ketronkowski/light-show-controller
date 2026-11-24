@@ -44,8 +44,15 @@ class JsonHttp(
             .contentType(MediaType.APPLICATION_JSON)
             .body(objectMapper.writeValueAsString(body))
         headers.forEach { (k, v) -> req.header(k, v) }
-        val text = req.retrieve().body(String::class.java) ?: ""
-        return if (text.isBlank()) objectMapper.createObjectNode() else objectMapper.readTree(text)
+        return parseLenient(req.retrieve().body(String::class.java) ?: "")
+    }
+
+    /** JSON when the reply is JSON; plain-text replies (FPP commands answer "Started", "Stopped") as a text node. */
+    internal fun parseLenient(text: String): JsonNode {
+        val t = text.trim()
+        if (t.isEmpty()) return objectMapper.createObjectNode()
+        if (t.startsWith("{") || t.startsWith("[")) return runCatching { objectMapper.readTree(t) }.getOrElse { objectMapper.nodeFactory.textNode(t) }
+        return objectMapper.nodeFactory.textNode(t)
     }
 
     private fun parseDate(value: String?): Instant? =

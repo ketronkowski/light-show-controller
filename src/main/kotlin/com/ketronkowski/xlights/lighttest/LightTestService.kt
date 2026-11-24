@@ -18,7 +18,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.Semaphore
 import kotlin.io.path.exists
 import kotlin.io.path.readText
 
@@ -57,7 +57,9 @@ class LightTestService(
     private val cfg get() = props.lights
     private val zone get() = ZoneId.of(props.zone)
 
-    private val lock = ReentrantLock()
+    // A semaphore, not a lock: calibration takes it on the request thread and gives it back
+    // from its background thread, which a ReentrantLock refuses (it stayed "busy" forever).
+    private val lock = Semaphore(1)
     private val abort = AtomicBoolean(false)
     @Volatile private var progress = LightTestStatus(busy = false)
 
@@ -66,7 +68,7 @@ class LightTestService(
     fun status(): LightTestStatus {
         val cal = calibration()
         return progress.copy(
-            busy = lock.isLocked,
+            busy = lock.availablePermits() == 0,
             calibratedAt = cal?.createdAt,
             calibratedModels = cal?.models?.size ?: 0,
             visibleModels = cal?.visible?.size ?: 0,
@@ -125,7 +127,7 @@ class LightTestService(
         val controllers = parser.parse(xlightsDir)
         val host = fppHost(controllers)
         blockedReason(host, respectShowHours = false)?.let { throw IllegalStateException("Can't calibrate: $it") }
-        if (!lock.tryLock()) throw LightTestBusyException()
+        if (!lock.tryAcquire()) throw LightTestBusyException()
         abort.set(false)
         progress = LightTestStatus(busy = true, job = "calibration", message = "starting")
         Thread.ofVirtual().name("light-calibration").start {
@@ -137,7 +139,7 @@ class LightTestService(
                 log.warn("Light calibration failed", e)
                 progress = progress.copy(busy = false, message = "calibration failed: ${e.brief()}")
             } finally {
-                lock.unlock()
+                lock.release()
             }
         }
         return status()
@@ -180,7 +182,7 @@ class LightTestService(
         fun skipped(why: String) = LightRun(runId, started, Instant.now(), emptyList(), why, cal?.createdAt)
         if (cal == null) return skipped("not calibrated yet: run the calibration once after dark")
         blockedReason(fppHost, respectShowHours = respectShowHours)?.let { return skipped(it) }
-        if (!lock.tryLock()) return skipped("a calibration or test is already running")
+        if (!lock.tryAcquire()) return skipped("a calibration or test is already running")
         try {
             abort.set(false)
             progress = LightTestStatus(busy = true, job = "test", message = "starting")
@@ -208,7 +210,7 @@ class LightTestService(
             progress = progress.copy(busy = false, message = "test failed: ${e.brief()}")
             throw e
         } finally {
-            lock.unlock()
+            lock.release()
         }
     }
 
