@@ -51,7 +51,21 @@ body.show-page { padding: 0 1rem calc(2rem + env(safe-area-inset-bottom)); }
 .sc-meter { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; }
 .sc-meter b { display: block; font-family: var(--font-mono); font-size: 1.25rem; font-weight: 600; }
 .sc-meter small { color: var(--text-dim); font-size: 0.72rem; }
-.sc-spark { width: 100%; height: 48px; margin-top: 0.6rem; display: block; }
+.sc-spark-plot { position: relative; margin-top: 0.6rem; touch-action: pan-y; cursor: crosshair; }
+.sc-spark { width: 100%; height: 48px; display: block; }
+.sc-spark-cursor { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--text-faint); pointer-events: none; }
+.sc-spark-dot {
+  position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 2px var(--bg); pointer-events: none;
+}
+.sc-spark-tip {
+  position: absolute; bottom: calc(100% + 4px); transform: translateX(6px); white-space: nowrap; pointer-events: none;
+  padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated);
+  font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.3; display: flex; flex-direction: column;
+}
+.sc-spark-tip.flip { transform: translateX(calc(-100% - 6px)); }
+.sc-spark-tip span { color: var(--text-faint); }
+.sc-spark-cursor[hidden], .sc-spark-dot[hidden], .sc-spark-tip[hidden] { display: none; }
 .sc-spark path.line { fill: none; stroke: var(--accent); stroke-width: 1.5; }
 .sc-spark path.area { fill: var(--accent-dim); opacity: 0.35; }
 .sc-spark-cap { display: flex; justify-content: space-between; color: var(--text-faint); font-size: 0.7rem; font-family: var(--font-mono); }

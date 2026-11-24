@@ -70,7 +70,8 @@ data class PlugNow(
     val boards: List<String>,
 )
 
-data class PowerSample(val at: Instant, val watts: Double)
+/** One show-circuit reading. [amps] is measured when a current sensor is set, else watts ÷ volts. */
+data class PowerSample(val at: Instant, val watts: Double, val amps: Double? = null, val volts: Double? = null)
 
 data class BoardNow(
     val name: String,

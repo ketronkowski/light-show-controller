@@ -54,6 +54,18 @@ function renderNow(f) {
   body.replaceChildren(...kids);
 }
 
+// Where the pointer sits on the power graph (0..1 across), kept so the 5 s re-render keeps the readout.
+let sparkHover = null;
+// Tapping anywhere off the graph clears a touch readout (one listener; the graph is rebuilt every poll).
+document.addEventListener('pointerdown', e => {
+  if (!e.target.closest?.('.sc-spark-plot')) {
+    sparkHover = null;
+    document.querySelectorAll('.sc-spark-cursor, .sc-spark-dot, .sc-spark-tip').forEach(n => { n.hidden = true; });
+  }
+});
+
+const fmtClock = ms => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+
 function sparkline(history) {
   if (!history || history.length < 2) return null;
   const W = 300, H = 48, pad = 2;
@@ -70,7 +82,37 @@ function sparkline(history) {
   for (const [cls, path] of [['area', `${d}L${W} ${H}L0 ${H}Z`], ['line', d]]) {
     const p = document.createElementNS(ns, 'path'); p.setAttribute('class', cls); p.setAttribute('d', path); svg.append(p);
   }
-  const wrap = el('div', {}, svg, el('div', { class: 'sc-spark-cap' },
+
+  // Hover / touch readout: a cursor line and dot on the nearest sample, with its W · A · V and time.
+  const cursor = el('div', { class: 'sc-spark-cursor', hidden: '' });
+  const dot = el('div', { class: 'sc-spark-dot', hidden: '' });
+  const tip = el('div', { class: 'sc-spark-tip', hidden: '' });
+  const plot = el('div', { class: 'sc-spark-plot' }, svg, cursor, dot, tip);
+  const show = frac => {
+    sparkHover = frac;
+    const t = t0 + frac * dt;
+    let i = 0;
+    for (let k = 1; k < history.length; k++) if (Math.abs(Date.parse(history[k].at) - t) < Math.abs(Date.parse(history[i].at) - t)) i = k;
+    const s = history[i], [x, y] = pts[i];
+    const left = `${(x / W) * 100}%`;
+    cursor.style.left = left; dot.style.left = left; dot.style.top = `${(y / H) * 100}%`;
+    const parts = [`${num(s.watts)} W`];
+    if (s.amps != null) parts.push(`${num(s.amps, 1)} A`);
+    if (s.volts != null) parts.push(`${num(s.volts)} V`);
+    tip.replaceChildren(el('b', { text: parts.join(' · ') }), el('span', { text: fmtClock(Date.parse(s.at)) }));
+    tip.classList.toggle('flip', x / W > 0.5);
+    tip.style.left = left;
+    cursor.hidden = dot.hidden = tip.hidden = false;
+  };
+  const hide = () => { sparkHover = null; cursor.hidden = dot.hidden = tip.hidden = true; };
+  const at = e => { const r = plot.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); };
+  plot.addEventListener('pointermove', e => show(at(e)));
+  plot.addEventListener('pointerdown', e => show(at(e)));
+  // A mouse leaving clears it; a finger lifting leaves the last reading up until the next tap elsewhere.
+  plot.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hide(); });
+  if (sparkHover != null) show(sparkHover);
+
+  const wrap = el('div', {}, plot, el('div', { class: 'sc-spark-cap' },
     el('span', { text: `${Math.round(dt / 60000)} min ago` }), el('span', { text: `${Math.round(lo)}–${Math.round(hi)} W` }), el('span', { text: 'now' })));
   return wrap;
 }
