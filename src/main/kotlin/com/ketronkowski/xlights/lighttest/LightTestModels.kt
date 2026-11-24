@@ -29,6 +29,8 @@ data class ModelCal(
     val mask: Mask = Mask(emptyList()),
     /** Total brightness gain inside the mask on calibration night. */
     val reference: Double = 0.0,
+    /** For a model not in view: how many clean pixels it did reach (helps tune the threshold). */
+    val seenPixels: Int? = null,
 ) {
     @get:com.fasterxml.jackson.annotation.JsonIgnore
     val where: String get() = if (port != null) "$controller port $port" else controller
@@ -43,6 +45,8 @@ data class Calibration(
     val models: List<ModelCal>,
     /** Models that could not be lit at all (no FPP output to their board, ...) and why. */
     val skipped: Map<String, String> = emptyMap(),
+    /** Pixels that flickered between dark pictures; never counted. */
+    val noise: Mask = Mask(emptyList()),
 ) {
     @get:com.fasterxml.jackson.annotation.JsonIgnore
     val visible: List<ModelCal> get() = models.filter { it.visible }

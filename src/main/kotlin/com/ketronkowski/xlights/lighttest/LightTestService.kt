@@ -142,13 +142,21 @@ class LightTestService(
     internal fun calibrate(controllers: List<XLightsController>, host: String): Calibration {
         val (targets, skipped) = targets(controllers, host)
         require(targets.isNotEmpty()) { "no models to light (${skipped.values.firstOrNull() ?: "empty layout"})" }
-        val cals = mutableListOf<ModelCal>()
+        val candidates = mutableListOf<LightAnalysis.Candidate>()
         var size = 0 to 0
-        val composite = sweep(host, targets, "calibration") { t, lit, base ->
+        var noise: BooleanArray? = null
+        val composite = sweep(host, targets, "calibration",
+            onDarks = { a, b ->
+                val n = noise ?: BooleanArray(a.lum.size).also { noise = it }
+                LightMath.noise(a, b, cfg.maskThreshold.toFloat(), n)
+            },
+        ) { t, lit, base ->
             size = lit.width to lit.height
-            cals += LightAnalysis.calibrate(t, lit, base, cfg)
+            candidates += LightAnalysis.candidate(t, lit, base, cfg)
         }
-        val cal = Calibration(Instant.now(), size.first, size.second, cfg.color, cals, skipped)
+        // Masks only once every dark pair is in, so late flicker is removed from early models too.
+        val cals = candidates.map { LightAnalysis.calibrate(it, noise, size.first, cfg) }
+        val cal = Calibration(Instant.now(), size.first, size.second, cfg.color, cals, skipped, noise?.let { Mask.of(it) } ?: Mask(emptyList()))
         Files.createDirectories(root)
         Files.writeString(calFile, objectMapper.writeValueAsString(cal))
         composite?.let { Files.write(calImage, LightAnalysis.annotate(LightAnalysis.toImage(it, size.first, size.second), cals, null, size.first)) }
@@ -222,7 +230,12 @@ class LightTestService(
             if (props.wled.ignore.any { it.equals(c.name, ignoreCase = true) }) continue
             val ip = FppTester.resolve(c.ipAddress)
             if (ip == fppIp) continue
-            val models = c.models.filter { !it.isNull && it.channelCount > 0 && cfg.ignoreModels.none { n -> n.equals(it.name, ignoreCase = true) } }
+            // Null models are padding pixels between props: never part of the test, even when
+            // they aren't in xLights' "Nulls" layout group.
+            val models = c.models.filter {
+                !it.isNull && !NULL_NAME.containsMatchIn(it.name) && it.channelCount > 0 &&
+                    cfg.ignoreModels.none { n -> n.equals(it.name, ignoreCase = true) }
+            }
             val start = starts[ip]
             if (start == null) {
                 models.forEach { skipped[it.name] = "FPP has no output to ${c.name}" }
@@ -240,11 +253,17 @@ class LightTestService(
     }
 
     /**
-     * Lights each target in turn and hands its picture, plus a dark baseline (the darker
+     * Lights each target in turn and hands its picture, plus a dark baseline (the brighter
      * of the all-off pictures before and after its block), to [onModel]. Returns the
      * brightest-of picture of everything that lit, for the report.
      */
-    private fun sweep(host: String, targets: List<ModelTarget>, job: String, onModel: (ModelTarget, Frame, Frame) -> Unit): IntArray? {
+    private fun sweep(
+        host: String,
+        targets: List<ModelTarget>,
+        job: String,
+        onDarks: (Frame, Frame) -> Unit = { _, _ -> },
+        onModel: (ModelTarget, Frame, Frame) -> Unit,
+    ): IntArray? {
         Files.createDirectories(root)
         Files.writeString(activeMarker, host)
         var composite: IntArray? = null
@@ -271,7 +290,8 @@ class LightTestService(
                 block += t to Frame(lit.width, lit.height, lit.lum)
                 if (block.size >= cfg.darkEvery.coerceAtLeast(1) || i == targets.lastIndex) {
                     val after = dark()
-                    val base = Frame.min(before, after)
+                    onDarks(before, after)
+                    val base = Frame.max(before, after)
                     for ((bt, bf) in block) onModel(bt, bf, base)
                     block.clear()
                     before = after
@@ -285,4 +305,8 @@ class LightTestService(
     }
 
     internal fun today(): LocalDate = LocalDate.now(zone)
+
+    private companion object {
+        val NULL_NAME = Regex("^null\\b", RegexOption.IGNORE_CASE)
+    }
 }

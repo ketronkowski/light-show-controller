@@ -47,10 +47,13 @@ class Frame(val width: Int, val height: Int, val lum: FloatArray, val rgb: IntAr
             return Frame(w, h, lum, rgb)
         }
 
-        /** Per-pixel minimum of two frames of the same size: the darker of two baselines. */
-        fun min(a: Frame, b: Frame): Frame {
+        /**
+         * Per-pixel maximum of two dark frames: anything that flickers on its own (a
+         * neighbor's lights, a passing car) is in the baseline and doesn't count as lit.
+         */
+        fun max(a: Frame, b: Frame): Frame {
             require(a.width == b.width && a.height == b.height) { "frames differ in size" }
-            return Frame(a.width, a.height, FloatArray(a.lum.size) { minOf(a.lum[it], b.lum[it]) })
+            return Frame(a.width, a.height, FloatArray(a.lum.size) { maxOf(a.lum[it], b.lum[it]) })
         }
     }
 }
@@ -120,6 +123,47 @@ object LightMath {
 
     /** The pixels that got at least [threshold] brighter: where the model is in the picture. */
     fun mask(gain: FloatArray, threshold: Float): Mask = Mask.of(BooleanArray(gain.size) { gain[it] >= threshold })
+
+    /**
+     * Pixels that changed by [threshold] between two all-dark pictures, grown by one pixel:
+     * places that flicker by themselves and must never count as a model lighting.
+     */
+    fun noise(a: Frame, b: Frame, threshold: Float, into: BooleanArray) {
+        val w = a.width; val h = a.height
+        val d = FloatArray(w * h) { kotlin.math.abs(b.lum[it] - a.lum[it]) }
+        for (y in 0 until h) for (x in 0 until w) {
+            var s = 0f; var n = 0
+            for (yy in maxOf(0, y - 1)..minOf(h - 1, y + 1)) for (xx in maxOf(0, x - 1)..minOf(w - 1, x + 1)) { s += d[yy * w + xx]; n++ }
+            if (s / n >= threshold) {
+                for (yy in maxOf(0, y - 1)..minOf(h - 1, y + 1)) for (xx in maxOf(0, x - 1)..minOf(w - 1, x + 1)) into[yy * w + xx] = true
+            }
+        }
+    }
+
+    /** Keeps only pixels in 8-connected groups of at least [minSize]: drops lone specks. */
+    fun keepComponents(pixels: Set<Int>, width: Int, minSize: Int): Set<Int> {
+        if (minSize <= 1) return pixels
+        val left = pixels.toMutableSet()
+        val keep = mutableSetOf<Int>()
+        while (left.isNotEmpty()) {
+            val seed = left.first(); left.remove(seed)
+            val comp = mutableListOf(seed)
+            var i = 0
+            while (i < comp.size) {
+                val p = comp[i++]
+                val x = p % width
+                for (dy in -1..1) for (dx in -1..1) {
+                    if (dx == 0 && dy == 0) continue
+                    val nx = x + dx
+                    if (nx < 0 || nx >= width) continue
+                    val q = p + dy * width + dx
+                    if (left.remove(q)) comp += q
+                }
+            }
+            if (comp.size >= minSize) keep += comp
+        }
+        return keep
+    }
 
     /** Total gain inside [mask], and the share of its pixels that reached half the threshold. */
     fun signal(gain: FloatArray, mask: Mask, threshold: Float): Signal {

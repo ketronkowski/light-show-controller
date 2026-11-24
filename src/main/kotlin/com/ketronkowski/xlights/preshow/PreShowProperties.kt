@@ -142,8 +142,10 @@ data class PreShowProperties(
         val analysisWidth: Int = 960,
         /** Brightness gain (0-255) that counts as "this pixel lit up". */
         val maskThreshold: Double = 18.0,
-        /** A model smaller than this many analysis pixels counts as not in the camera's view. */
-        val minMaskPixels: Int = 6,
+        /** A model smaller than this many clean analysis pixels counts as not in the camera's view. */
+        val minMaskPixels: Int = 30,
+        /** Bright specks smaller than this many connected pixels are ignored. */
+        val minComponentPixels: Int = 3,
         /** Below this share of the night's typical brightness gain, a model is OFF. */
         val offRatio: Double = 0.15,
         /** Below this share (or under 60% of its usual lit area), a model is DIM / partly out. */

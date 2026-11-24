@@ -250,7 +250,13 @@ always switched off at the end (also after a crash or restart mid-test).
 1. **Calibrate once, after dark**, with nobody in front of the camera: *Calibrate* on the
    Pre-show page (or `POST /api/lighttest/calibrate`). It lights each model once (about 1.5 s
    per model plus a dark picture every 8), learns where each model shows up in the picture, and
-   marks models the camera can't see as "not in view". The calibration picture
+   marks models the camera can't see as "not in view". Pixels that change between two dark
+   pictures by themselves (a neighbor's lights, cars) form a noise map that never counts, the
+   baseline for each model is the brighter of the dark pictures around it, specks under 3 pixels
+   are dropped, and a model needs 30 clean pixels (at 960 px wide) to count as in view. Models
+   named "Null..." are padding and are never tested. On the first sweep of the 2026 show this
+   cleanly split 143 visible props from 11 with no pixels at all (the Mailbox, the upper eaves
+   and verticals hidden by the roofline, and one peace stake). The calibration picture
    (`/api/lighttest/calibration.jpg`) boxes every model it found. Re-calibrate if the camera moves.
 2. **The camera pass** lights every model in view again and grades it against calibration,
    scaled to the night's typical model so dusk light or camera exposure doesn't count as a fault:

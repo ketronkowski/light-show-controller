@@ -37,6 +37,21 @@ class LightTestTest {
     }
 
     @Test
+    fun `a spot that flickers between dark pictures never counts as a model`() {
+        val darkA = frame()
+        val darkB = frame(intArrayOf(15, 0, 12)) // a neighbor's light came on between darks
+        val noise = BooleanArray(w * h)
+        LightMath.noise(darkA, darkB, 18f, noise)
+        // A null model lights nothing, but the flicker is in its picture.
+        val lit = frame(intArrayOf(15, 0, 12))
+        val c = LightAnalysis.candidate(target("Null"), lit, darkA, cfg)
+        assertTrue(c.gains.size > 30)
+        assertFalse(LightAnalysis.calibrate(c, noise, w, cfg).visible)
+        // With the brighter of the two darks as the baseline it doesn't show up at all.
+        assertTrue(LightAnalysis.candidate(target("Null"), lit, Frame.max(darkA, darkB), cfg).gains.isEmpty())
+    }
+
+    @Test
     fun `nightly grading marks on, half-out and dead models, scaled to the night`() {
         val dark = frame()
         val names = listOf("A", "B", "C", "D", "Half", "Dead")

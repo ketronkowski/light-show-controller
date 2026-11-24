@@ -12,14 +12,34 @@ import javax.imageio.ImageIO
 /** Turns pictures into calibration masks and nightly ON / DIM / OFF verdicts. Pure, no I/O. */
 object LightAnalysis {
 
-    /** What one model looked like on calibration night. */
-    fun calibrate(t: ModelTarget, lit: Frame, base: Frame, cfg: PreShowProperties.LightTest): ModelCal {
+    /** The pixels one model brightened on calibration night, with how much, before noise is removed. */
+    class Candidate(val target: ModelTarget, val gains: Map<Int, Float>)
+
+    fun candidate(t: ModelTarget, lit: Frame, base: Frame, cfg: PreShowProperties.LightTest): Candidate {
         val gain = LightMath.gain(lit, base)
-        val mask = LightMath.mask(gain, cfg.maskThreshold.toFloat())
-        val visible = mask.size >= cfg.minMaskPixels
-        val ref = if (visible) LightMath.signal(gain, mask, cfg.maskThreshold.toFloat()).sum else 0.0
-        return ModelCal(t.name, t.controller, t.port, t.firstChannel, t.lastChannel, visible, if (visible) mask else Mask(emptyList()), ref)
+        val th = cfg.maskThreshold.toFloat()
+        val px = HashMap<Int, Float>()
+        for (i in gain.indices) if (gain[i] >= th) px[i] = gain[i]
+        return Candidate(t, px)
     }
+
+    /**
+     * Final calibration for one model: its bright pixels minus everything that flickered
+     * between dark pictures, minus lone specks. Too few pixels left = not in the camera's view.
+     */
+    fun calibrate(c: Candidate, noise: BooleanArray?, width: Int, cfg: PreShowProperties.LightTest): ModelCal {
+        val clean = c.gains.keys.filter { noise == null || !noise[it] }.toSet()
+        val kept = LightMath.keepComponents(clean, width, cfg.minComponentPixels)
+        val visible = kept.size >= cfg.minMaskPixels
+        val flags = if (visible) BooleanArray((kept.maxOrNull() ?: 0) + 1).also { f -> kept.forEach { f[it] = true } } else BooleanArray(0)
+        val ref = if (visible) kept.sumOf { c.gains.getValue(it).toDouble() } else 0.0
+        val t = c.target
+        return ModelCal(t.name, t.controller, t.port, t.firstChannel, t.lastChannel, visible, Mask.of(flags), ref, kept.size.takeIf { !visible })
+    }
+
+    /** One-step calibration without a noise map (tests, single model). */
+    fun calibrate(t: ModelTarget, lit: Frame, base: Frame, cfg: PreShowProperties.LightTest): ModelCal =
+        calibrate(candidate(t, lit, base, cfg), null, lit.width, cfg)
 
     /** How strongly a calibrated model lit tonight. */
     fun measure(cal: ModelCal, lit: Frame, base: Frame, cfg: PreShowProperties.LightTest): Signal =
