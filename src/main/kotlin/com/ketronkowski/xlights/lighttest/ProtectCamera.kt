@@ -2,6 +2,7 @@ package com.ketronkowski.xlights.lighttest
 
 import com.ketronkowski.xlights.preshow.PreShowProperties
 import org.springframework.stereotype.Component
+import java.net.Socket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -12,7 +13,8 @@ import java.time.Duration
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLParameters
 import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
+import javax.net.ssl.SSLEngine
+import javax.net.ssl.X509ExtendedTrustManager
 
 /** Something that hands back a JPEG of the yard. */
 fun interface Camera {
@@ -31,13 +33,10 @@ class ProtectCamera(private val props: PreShowProperties) : Camera {
     private val client: HttpClient by lazy {
         val b = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(5))
         if (cfg.insecureTls) {
-            // The console serves a self-signed certificate on the LAN address.
-            val trustAll = object : X509TrustManager {
-                override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
-                override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
-                override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
-            }
-            val ctx = SSLContext.getInstance("TLS").apply { init(null, arrayOf<TrustManager>(trustAll), SecureRandom()) }
+            // The console serves a self-signed certificate for unifi.local, not its LAN address.
+            // An *extended* trust manager is needed: Java checks the host name itself around a
+            // plain X509TrustManager, and HttpClient asks for that check whatever SSLParameters say.
+            val ctx = SSLContext.getInstance("TLS").apply { init(null, arrayOf<TrustManager>(TrustAll), SecureRandom()) }
             b.sslContext(ctx).sslParameters(SSLParameters().apply { endpointIdentificationAlgorithm = null })
         }
         b.build()
@@ -54,5 +53,16 @@ class ProtectCamera(private val props: PreShowProperties) : Camera {
         val res = client.send(req, HttpResponse.BodyHandlers.ofByteArray())
         check(res.statusCode() == 200) { "camera snapshot answered HTTP ${res.statusCode()}" }
         return res.body()
+    }
+
+    /** Accepts any certificate for any host name. Only for the console on the LAN. */
+    internal object TrustAll : X509ExtendedTrustManager() {
+        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
+        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String, socket: Socket?) {}
+        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String, socket: Socket?) {}
+        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String, engine: SSLEngine?) {}
+        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String, engine: SSLEngine?) {}
+        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
     }
 }
