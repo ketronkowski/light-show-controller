@@ -45,10 +45,10 @@ class LightTestTest {
         // A null model lights nothing, but the flicker is in its picture.
         val lit = frame(intArrayOf(15, 0, 12))
         val c = LightAnalysis.candidate(target("Null"), lit, darkA, cfg)
-        assertTrue(c.gains.size > 30)
+        assertTrue(c.size > 30)
         assertFalse(LightAnalysis.calibrate(c, noise, w, cfg).visible)
         // With the brighter of the two darks as the baseline it doesn't show up at all.
-        assertTrue(LightAnalysis.candidate(target("Null"), lit, Frame.max(darkA, darkB), cfg).gains.isEmpty())
+        assertTrue(LightAnalysis.candidate(target("Null"), lit, Frame.max(darkA, darkB), cfg).size == 0)
     }
 
     @Test

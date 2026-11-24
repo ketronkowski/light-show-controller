@@ -12,15 +12,26 @@ import javax.imageio.ImageIO
 /** Turns pictures into calibration masks and nightly ON / DIM / OFF verdicts. Pure, no I/O. */
 object LightAnalysis {
 
-    /** The pixels one model brightened on calibration night, with how much, before noise is removed. */
-    class Candidate(val target: ModelTarget, val gains: Map<Int, Float>)
+    /**
+     * The pixels one model brightened on calibration night, with how much, before noise is removed.
+     * Kept as two plain arrays (sorted pixel index, gain): a boxed map per model ran a 154-model
+     * calibration out of heap.
+     */
+    class Candidate(val target: ModelTarget, val pixels: IntArray, val gains: FloatArray) {
+        val size get() = pixels.size
+        fun gainAt(pixel: Int): Float = gains[pixels.binarySearch(pixel)]
+    }
 
     fun candidate(t: ModelTarget, lit: Frame, base: Frame, cfg: PreShowProperties.LightTest): Candidate {
         val gain = LightMath.gain(lit, base)
         val th = cfg.maskThreshold.toFloat()
-        val px = HashMap<Int, Float>()
-        for (i in gain.indices) if (gain[i] >= th) px[i] = gain[i]
-        return Candidate(t, px)
+        var n = 0
+        for (g in gain) if (g >= th) n++
+        val px = IntArray(n)
+        val gs = FloatArray(n)
+        var k = 0
+        for (i in gain.indices) if (gain[i] >= th) { px[k] = i; gs[k] = gain[i]; k++ }
+        return Candidate(t, px, gs)
     }
 
     /**
@@ -28,11 +39,11 @@ object LightAnalysis {
      * between dark pictures, minus lone specks. Too few pixels left = not in the camera's view.
      */
     fun calibrate(c: Candidate, noise: BooleanArray?, width: Int, cfg: PreShowProperties.LightTest): ModelCal {
-        val clean = c.gains.keys.filter { noise == null || !noise[it] }.toSet()
+        val clean = c.pixels.filter { noise == null || !noise[it] }.toSet()
         val kept = LightMath.keepComponents(clean, width, cfg.minComponentPixels)
         val visible = kept.size >= cfg.minMaskPixels
         val flags = if (visible) BooleanArray((kept.maxOrNull() ?: 0) + 1).also { f -> kept.forEach { f[it] = true } } else BooleanArray(0)
-        val ref = if (visible) kept.sumOf { c.gains.getValue(it).toDouble() } else 0.0
+        val ref = if (visible) kept.sumOf { c.gainAt(it).toDouble() } else 0.0
         val t = c.target
         return ModelCal(t.name, t.controller, t.port, t.firstChannel, t.lastChannel, visible, Mask.of(flags), ref, kept.size.takeIf { !visible })
     }
