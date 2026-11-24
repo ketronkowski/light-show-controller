@@ -284,13 +284,17 @@ class LightTestService(
                 Thread.sleep(cfg.settleMs)
                 return shot()
             }
+            // FPP's first Test Start of a run shows up late (0.7 s after it, a lit model was still
+            // mostly dark), which marked the first model "not in view". Warm it up once, and give
+            // the first model double the settle time.
+            targets.firstOrNull()?.let { lighter.light(host, it.firstChannel, it.lastChannel, cfg.color); Thread.sleep(cfg.settleMs * 2) }
             var before = dark()
             val block = mutableListOf<Pair<ModelTarget, Frame>>()
             for ((i, t) in targets.withIndex()) {
                 if (abort.get()) throw LightTestAborted()
                 progress = progress.copy(job = job, done = i, total = targets.size, message = "lighting ${t.name} (${t.where})")
                 lighter.light(host, t.firstChannel, t.lastChannel, cfg.color)
-                Thread.sleep(cfg.settleMs)
+                Thread.sleep(if (i == 0) cfg.settleMs * 2 else cfg.settleMs)
                 val lit = shot()
                 composite = composite ?: IntArray(lit.width * lit.height)
                 lit.rgb?.let { LightAnalysis.maxInto(composite!!, it) }
