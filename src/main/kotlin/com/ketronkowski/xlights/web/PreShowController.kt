@@ -43,7 +43,7 @@ class PreShowController(
     fun run(@RequestBody(required = false) req: PreShowRunRequest?): ResponseEntity<PreShowRun> {
         val r = req ?: PreShowRunRequest()
         return try {
-            ResponseEntity.ok(service.run(r.pass.take(40), if (r.notify) NotifyPolicy.ALWAYS else NotifyPolicy.QUIET, r.layers.take(10)))
+            ResponseEntity.ok(service.run(r.pass.take(40), if (r.notify) NotifyPolicy.ALWAYS else NotifyPolicy.QUIET, r.layers.take(10), manual = true))
         } catch (e: PreShowBusyException) {
             ResponseEntity.status(HttpStatus.CONFLICT).build()
         }

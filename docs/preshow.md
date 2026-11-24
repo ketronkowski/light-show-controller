@@ -268,8 +268,9 @@ always switched off at the end (also after a crash or restart mid-test).
 3. **Later passes** (final, last look) repeat the camera result for `result-max-age-hours`, so the
    4:50 PM GO / NO-GO includes it without lighting anything again.
 
-Guards: it never lights while FPP is playing, or on show nights between `quiet-start`
-(default: show start) and `quiet-end` (22:30).
+Guards: it never lights while FPP is playing. Scheduled runs also never light on show nights
+between `quiet-start` (default: show start) and `quiet-end` (22:30); a calibration or test
+started by hand from the page runs any time FPP is idle (you stopped the show on purpose).
 
 ```yaml
 preshow:

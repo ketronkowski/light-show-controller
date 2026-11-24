@@ -100,15 +100,19 @@ class LightTestService(
 
     // ── Guards ─────────────────────────────────────────────────────────────
 
-    /** Why lighting isn't allowed right now, or null when it is. */
-    fun blockedReason(fppHost: String?, now: Instant = Instant.now()): String? {
+    /**
+     * Why lighting isn't allowed right now, or null when it is. Show hours only stop
+     * scheduled runs: a person who starts one by hand has stopped the show on purpose.
+     * FPP must be idle either way.
+     */
+    fun blockedReason(fppHost: String?, now: Instant = Instant.now(), respectShowHours: Boolean = true): String? {
         if (!cfg.configured) return "the camera isn't set up (preshow.lights)"
         if (fppHost.isNullOrBlank()) return "no FPP address"
         val local = now.atZone(zone)
         val showNight = props.firstShowNight == null || !local.toLocalDate().isBefore(props.firstShowNight)
         val quietStart = cfg.quietStart ?: props.showStart
         val t = local.toLocalTime()
-        if (showNight && !t.isBefore(quietStart) && t.isBefore(cfg.quietEnd)) return "it's show time (no light test from $quietStart to ${cfg.quietEnd})"
+        if (respectShowHours && showNight && !t.isBefore(quietStart) && t.isBefore(cfg.quietEnd)) return "it's show time (no light test from $quietStart to ${cfg.quietEnd})"
         val idle = try { lighter.idle(fppHost) } catch (e: Exception) { return "FPP isn't answering (${e.brief()})" }
         if (!idle) return "FPP is playing"
         return null
@@ -120,7 +124,7 @@ class LightTestService(
     fun startCalibration(): LightTestStatus {
         val controllers = parser.parse(xlightsDir)
         val host = fppHost(controllers)
-        blockedReason(host)?.let { throw IllegalStateException("Can't calibrate: $it") }
+        blockedReason(host, respectShowHours = false)?.let { throw IllegalStateException("Can't calibrate: $it") }
         if (!lock.tryLock()) throw LightTestBusyException()
         abort.set(false)
         progress = LightTestStatus(busy = true, job = "calibration", message = "starting")
@@ -170,12 +174,12 @@ class LightTestService(
      * Lights every calibrated, visible model and grades it. Returns a run with
      * [LightRun.skippedBecause] set when lighting wasn't allowed. Saves it as the latest.
      */
-    fun test(runId: String, controllers: List<XLightsController>, fppHost: String?): LightRun {
+    fun test(runId: String, controllers: List<XLightsController>, fppHost: String?, respectShowHours: Boolean = true): LightRun {
         val started = Instant.now()
         val cal = calibration()
         fun skipped(why: String) = LightRun(runId, started, Instant.now(), emptyList(), why, cal?.createdAt)
         if (cal == null) return skipped("not calibrated yet: run the calibration once after dark")
-        blockedReason(fppHost)?.let { return skipped(it) }
+        blockedReason(fppHost, respectShowHours = respectShowHours)?.let { return skipped(it) }
         if (!lock.tryLock()) return skipped("a calibration or test is already running")
         try {
             abort.set(false)

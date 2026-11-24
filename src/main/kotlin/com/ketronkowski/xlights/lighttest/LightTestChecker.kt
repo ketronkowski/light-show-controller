@@ -27,7 +27,7 @@ class LightTestChecker(
     override fun check(ctx: CheckContext): List<CheckResult> {
         if (!props.lights.configured) return emptyList()
         if (ctx.requested(layer)) {
-            val run = service.test(ctx.runId, ctx.controllers, ctx.fppHost)
+            val run = service.test(ctx.runId, ctx.controllers, ctx.fppHost, respectShowHours = !ctx.manual)
             run.skippedBecause?.let { return listOf(CheckResult.warn(layer, "Camera light test", "camera", "light test skipped: $it")) }
             service.lastRunImage()?.let { store.saveAttachment(ctx.runId, LIGHTS_IMAGE, it) }
             return results(run, null)
