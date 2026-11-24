@@ -47,10 +47,10 @@ class PreShowService(
     private val running = ReentrantLock()
     private val zone get() = ZoneId.of(props.zone)
 
-    fun run(pass: String, policy: NotifyPolicy, layers: List<String> = emptyList()): PreShowRun {
+    fun run(pass: String, policy: NotifyPolicy, layers: List<String> = emptyList(), manual: Boolean = false): PreShowRun {
         if (!running.tryLock()) throw PreShowBusyException()
         try {
-            val run = execute(pass, layers)
+            val run = execute(pass, layers, manual)
             store.save(run)
             store.prune(props.keepDays)
             report(run, policy)
@@ -62,7 +62,7 @@ class PreShowService(
 
     val busy: Boolean get() = running.isLocked
 
-    internal fun execute(pass: String, layers: List<String> = emptyList()): PreShowRun {
+    internal fun execute(pass: String, layers: List<String> = emptyList(), manual: Boolean = false): PreShowRun {
         val started = Instant.now()
         val id = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").withZone(zone).format(started) + "-" + pass.replace(Regex("[^A-Za-z0-9-]"), "")
         val selected = if (layers.isEmpty()) checkers
@@ -89,6 +89,7 @@ class PreShowService(
             fppHost = props.fpp.host.ifBlank { null } ?: controllers.firstOrNull { it.isFpp }?.ipAddress,
             runId = id,
             layers = layers.toSet(),
+            manual = manual,
         )
 
         val pool = Executors.newVirtualThreadPerTaskExecutor()

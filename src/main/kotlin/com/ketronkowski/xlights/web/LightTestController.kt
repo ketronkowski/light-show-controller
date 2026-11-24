@@ -47,7 +47,7 @@ class LightTestController(
         if (preshow.busy || lights.status().busy) return ResponseEntity.status(HttpStatus.CONFLICT).body(mapOf("error" to "a check is already running"))
         Thread.ofVirtual().name("light-test-manual").start {
             try {
-                preshow.run("camera-manual", NotifyPolicy.QUIET, listOf("Lights"))
+                preshow.run("camera-manual", NotifyPolicy.QUIET, listOf("Lights"), manual = true)
             } catch (e: PreShowBusyException) {
                 log.info("Manual light test skipped: a check is already running")
             } catch (e: Exception) {

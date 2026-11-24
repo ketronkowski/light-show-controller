@@ -23,6 +23,8 @@ data class CheckContext(
     val runId: String = "",
     /** Layers this pass asked for by name. Empty = a normal pass with every layer. */
     val layers: Set<String> = emptySet(),
+    /** Started by a person from the page or API, not by the schedule. */
+    val manual: Boolean = false,
 ) {
     /** True when this pass asked for [layer] by name (e.g. the camera pass for "Lights"). */
     fun requested(layer: String): Boolean = layers.any { it.equals(layer, ignoreCase = true) }
