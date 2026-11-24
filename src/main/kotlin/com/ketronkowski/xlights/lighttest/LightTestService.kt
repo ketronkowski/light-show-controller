@@ -122,8 +122,13 @@ class LightTestService(
 
     // ── Calibration ────────────────────────────────────────────────────────
 
-    /** Starts calibration in the background. Throws if busy, or with the reason lighting isn't allowed. */
-    fun startCalibration(): LightTestStatus {
+    /**
+     * Starts calibration in the background. Throws if busy, or with the reason lighting isn't allowed.
+     * [missingOnly] relights only the models the saved calibration couldn't see (or doesn't know yet)
+     * and merges them in: after a repair, in under a minute instead of five.
+     */
+    fun startCalibration(missingOnly: Boolean = false): LightTestStatus {
+        if (missingOnly) check(calibration() != null) { "Can't recalibrate missing models: not calibrated yet" }
         val controllers = parser.parse(xlightsDir)
         val host = fppHost(controllers)
         blockedReason(host, respectShowHours = false)?.let { throw IllegalStateException("Can't calibrate: $it") }
@@ -132,7 +137,7 @@ class LightTestService(
         progress = LightTestStatus(busy = true, job = "calibration", message = "starting")
         Thread.ofVirtual().name("light-calibration").start {
             try {
-                val cal = calibrate(controllers, host!!)
+                val cal = calibrate(controllers, host!!, missingOnly)
                 progress = LightTestStatus(busy = false, job = "calibration", done = cal.models.size, total = cal.models.size,
                     message = "calibrated: ${cal.visible.size} of ${cal.models.size} models in the camera's view")
             } catch (e: Throwable) {
@@ -146,9 +151,14 @@ class LightTestService(
         return status()
     }
 
-    internal fun calibrate(controllers: List<XLightsController>, host: String): Calibration {
-        val (targets, skipped) = targets(controllers, host)
-        require(targets.isNotEmpty()) { "no models to light (${skipped.values.firstOrNull() ?: "empty layout"})" }
+    internal fun calibrate(controllers: List<XLightsController>, host: String, missingOnly: Boolean = false): Calibration {
+        val (all, skipped) = targets(controllers, host)
+        val previous = if (missingOnly) calibration() else null
+        val seen = previous?.models?.filter { it.visible }?.map { it.name }?.toSet() ?: emptySet()
+        val targets = all.filter { it.name !in seen }
+        require(targets.isNotEmpty()) {
+            if (previous != null) "every model is already in view" else "no models to light (${skipped.values.firstOrNull() ?: "empty layout"})"
+        }
         val candidates = mutableListOf<LightAnalysis.Candidate>()
         var size = 0 to 0
         var noise: BooleanArray? = null
@@ -161,14 +171,34 @@ class LightTestService(
             size = lit.width to lit.height
             candidates += LightAnalysis.candidate(t, lit, base, cfg)
         }
+        if (previous != null) {
+            check(previous.width == size.first && previous.height == size.second) {
+                "the picture size changed since calibration (${previous.width}x${previous.height} -> ${size.first}x${size.second}): run a full calibration"
+            }
+            // Flicker seen on calibration night still counts, so it can't sneak into a new mask.
+            val n = noise ?: BooleanArray(size.first * size.second).also { noise = it }
+            previous.noise.forEach { if (it < n.size) n[it] = true }
+        }
         // Masks only once every dark pair is in, so late flicker is removed from early models too.
-        val cals = candidates.map { LightAnalysis.calibrate(it, noise, size.first, cfg) }
+        val fresh = candidates.map { LightAnalysis.calibrate(it, noise, size.first, cfg) }
+        val cals = if (previous == null) fresh else merge(all.map { it.name }, fresh, previous.models)
         val cal = Calibration(Instant.now(), size.first, size.second, cfg.color, cals, skipped, noise?.let { Mask.of(it) } ?: Mask(emptyList()))
         Files.createDirectories(root)
         Files.writeString(calFile, objectMapper.writeValueAsString(cal))
         composite?.let { Files.write(calImage, LightAnalysis.annotate(LightAnalysis.toImage(it, size.first, size.second), cals, null, size.first)) }
-        log.info("Light calibration saved: {} of {} models visible", cal.visible.size, cal.models.size)
+        log.info("Light calibration saved ({}): {} of {} models visible", if (previous != null) "missing models only" else "full", cal.visible.size, cal.models.size)
         return cal
+    }
+
+    companion object {
+        private val NULL_NAME = Regex("^null\\b", RegexOption.IGNORE_CASE)
+
+        /** New calibrations replace old ones by name, in the layout's order; models no longer in the layout drop out. */
+        internal fun merge(order: List<String>, fresh: List<ModelCal>, previous: List<ModelCal>): List<ModelCal> {
+            val new = fresh.associateBy { it.name }
+            val old = previous.associateBy { it.name }
+            return order.mapNotNull { new[it] ?: old[it] }
+        }
     }
 
     // ── Nightly test ───────────────────────────────────────────────────────
@@ -317,7 +347,4 @@ class LightTestService(
 
     internal fun today(): LocalDate = LocalDate.now(zone)
 
-    private companion object {
-        val NULL_NAME = Regex("^null\\b", RegexOption.IGNORE_CASE)
-    }
 }
