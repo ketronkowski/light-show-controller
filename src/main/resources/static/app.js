@@ -940,7 +940,7 @@ function onClearAllConfirmed() {
 // Un-does the "uploaded" UI state entirely: clears in-memory report/backups/
 // selection, re-fetches upload status (now 404 → "No upload yet."), and
 // re-renders both grids back to their static pre-upload hint text (the same
-// markup index.html ships with, not noRowsMessage()'s different wording).
+// markup controllers.html ships with, not noRowsMessage()'s different wording).
 async function resetUiToPreUploadState() {
   report = null;
   backups = [];

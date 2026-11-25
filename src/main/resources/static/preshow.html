@@ -26,14 +26,18 @@
     #lights { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:0 16px 12px; }
     #lights b { font-size:14px; margin-right:4px; }
     button.quiet { background:transparent; color:var(--blue); border:1px solid var(--line); }
+    /* Tab bar in this page's own colours, until the page moves to the shared theme. */
+    nav.tabbar { --tab-bg:var(--card); --tab-line:var(--line); --tab-text:var(--quiet); --tab-hover:var(--ink); --tab-on:var(--blue); box-shadow:none; }
+    @media (min-width:761px) and (min-height:501px) { nav.tabbar { padding:0 16px; } }
   </style>
+  <link rel="stylesheet" href="nav.css" />
 </head>
-<body>
+<body data-tab="preshow">
+  <script src="nav.js"></script>
   <header>
     <h1>Pre-show check</h1>
     <button id="runBtn" type="button">Run check now</button>
     <span id="msg"></span>
-    <a href="index.html">Back to controllers</a>
   </header>
   <section id="lights" aria-label="Camera light test">
     <b>Camera light test</b>

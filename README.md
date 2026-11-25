@@ -35,7 +35,7 @@ It originally started life as a local-only Kotlin CLI you had to run on one spec
 ```mermaid
 flowchart LR
     subgraph Browser
-        UI[Static UI<br/>index.html / app.js]
+        UI[Static UI<br/>controllers.html / app.js]
     end
 
     subgraph "light-show-controller (single Spring Boot pod)"
