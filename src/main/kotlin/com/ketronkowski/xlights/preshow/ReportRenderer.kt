@@ -31,13 +31,14 @@ class ReportRenderer(private val props: PreShowProperties) {
         val secs = java.time.Duration.between(run.startedAt, run.finishedAt).seconds
         val sb = StringBuilder()
         sb.append("""<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">""")
+        // The classes let the app restyle the report (dark look in its frame); email clients only see the inline styles.
         // Narrow screens (the app's report frame on a phone, phone mail apps that honour <style>): less padding.
         sb.append("""<style>@media (max-width:520px){body{padding:0 !important}.report-card{padding:14px !important;border-radius:0 !important;box-shadow:none !important}td{padding:5px 6px !important}h1{font-size:20px !important}}</style>""")
         sb.append("""</head><body style="margin:0;padding:16px;background:#f1f3f4;font-family:Arial,Helvetica,sans-serif;color:#202124">""")
         sb.append("""<div class="report-card" style="background:#ffffff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.15);max-width:700px;margin:0 auto;padding:24px">""")
         sb.append("""<h1 style="font-size:24px;margin:0 0 12px 0">Pre-show Check — ${esc(time.format(run.startedAt))}</h1>""")
-        sb.append("""<div style="background:$bannerBg;color:$bannerFg;border-radius:6px;padding:12px;font-weight:bold;text-align:center;font-size:16px">$icon ${esc(run.headline())}</div>""")
-        sb.append("""<p style="font-size:13px;color:#5f6368;margin:12px 0 0 0">Pass: <b>${esc(run.pass)}</b> · took $secs s""")
+        sb.append("""<div class="banner v-${run.verdict.name}" style="background:$bannerBg;color:$bannerFg;border-radius:6px;padding:12px;font-weight:bold;text-align:center;font-size:16px">$icon ${esc(run.headline())}</div>""")
+        sb.append("""<p class="muted" style="font-size:13px;color:#5f6368;margin:12px 0 0 0">Pass: <b>${esc(run.pass)}</b> · took $secs s""")
         run.layoutUploadedAt?.let { sb.append(" · xLights layout uploaded ${esc(time.format(it))}") }
         sb.append("</p>")
 
@@ -49,7 +50,7 @@ class ReportRenderer(private val props: PreShowProperties) {
 
         if (lightsImage != null) {
             sb.append(section("📸", "Camera light test"))
-            sb.append("""<p style="font-size:13px;color:#5f6368;margin:0 0 8px 0">Every model lit at once. Green = lit, yellow = dim or partly out, red = didn't light.</p>""")
+            sb.append("""<p class="muted" style="font-size:13px;color:#5f6368;margin:0 0 8px 0">Every model lit at once. Green = lit, yellow = dim or partly out, red = didn't light.</p>""")
             sb.append("""<img src="${esc(lightsImage)}" alt="Camera light test" style="width:100%;border-radius:6px;display:block">""")
         }
 
@@ -61,18 +62,18 @@ class ReportRenderer(private val props: PreShowProperties) {
             sb.append(section(layerIcons[layer] ?: "🔎", layer))
             sb.append(table(rows))
         }
-        sb.append("""<p style="font-size:12px;color:#5f6368;margin-top:24px">Nothing on the show was changed (the camera light test only uses FPP test mode, which it turns off). Run id ${esc(run.id)}.</p>""")
+        sb.append("""<p class="muted" style="font-size:12px;color:#5f6368;margin-top:24px">Nothing on the show was changed (the camera light test only uses FPP test mode, which it turns off). Run id ${esc(run.id)}.</p>""")
         sb.append("</div></body></html>")
         return sb.toString()
     }
 
     private fun section(icon: String, title: String) =
-        """<h2 style="font-size:18px;margin:24px 0 8px 0;padding-bottom:4px;border-bottom:2px solid #1a73e8">$icon ${esc(title)}</h2>"""
+        """<h2 class="section" style="font-size:18px;margin:24px 0 8px 0;padding-bottom:4px;border-bottom:2px solid #1a73e8">$icon ${esc(title)}</h2>"""
 
     private fun table(rows: List<CheckResult>): String {
         val sb = StringBuilder()
         sb.append("""<table style="width:100%;border-collapse:collapse;font-size:13px">""")
-        sb.append("""<tr style="background:#1a73e8;color:#ffffff;font-weight:bold">""")
+        sb.append("""<tr class="head" style="background:#1a73e8;color:#ffffff;font-weight:bold">""")
         for (h in listOf("Status", "Target", "Check", "Details")) sb.append("""<td style="padding:6px 8px">$h</td>""")
         sb.append("</tr>")
         for (r in rows) {
@@ -82,7 +83,7 @@ class ReportRenderer(private val props: PreShowProperties) {
                 Outcome.FAIL -> Triple("#f8d7da", "#721c24", "FAIL")
                 Outcome.SKIP -> Triple("#f1f3f4", "#5f6368", "SKIP")
             }
-            sb.append("""<tr style="background:$bg;color:$fg">""")
+            sb.append("""<tr class="o-${r.outcome.name}" style="background:$bg;color:$fg">""")
             sb.append("""<td style="padding:6px 8px;font-weight:bold;border-top:1px solid #ffffff">$label</td>""")
             sb.append("""<td style="padding:6px 8px;border-top:1px solid #ffffff">${esc(r.target)}</td>""")
             sb.append("""<td style="padding:6px 8px;border-top:1px solid #ffffff">${esc(r.name)}</td>""")

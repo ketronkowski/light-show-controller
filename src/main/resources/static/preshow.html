@@ -64,12 +64,37 @@
     const openReport = document.getElementById('openReport');
     const PHONE_MQ = window.matchMedia('(max-width: 760px), (max-height: 500px)');
 
+    // The report is the emailed HTML (white, inline styles). In the app it gets the dark look instead.
+    const REPORT_DARK_CSS = `
+      html, body { background: #12161d !important; color: #e7ebf2 !important; }
+      .report-card { background: #12161d !important; box-shadow: none !important; padding: 16px !important; }
+      body { padding: 0 !important; }
+      .muted { color: #8890a0 !important; }
+      h2.section { border-bottom-color: #ffb020 !important; }
+      tr.head { background: #1b212c !important; color: #8890a0 !important; }
+      tr.head td { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+      tr[class^="o-"] td { border-top: 1px solid rgba(255,255,255,0.06) !important; }
+      tr.o-PASS { background: rgba(46,230,168,0.07) !important; color: #c9f5e4 !important; }
+      tr.o-PASS td:first-child { color: #2ee6a8 !important; }
+      tr.o-WARN { background: rgba(255,176,32,0.12) !important; color: #ffe2a8 !important; }
+      tr.o-WARN td:first-child { color: #ffb020 !important; }
+      tr.o-FAIL { background: rgba(255,77,106,0.14) !important; color: #ffc9d2 !important; }
+      tr.o-FAIL td:first-child { color: #ff4d6a !important; }
+      tr.o-SKIP { background: transparent !important; color: #8890a0 !important; }
+      .banner.v-GO { background: rgba(46,230,168,0.12) !important; color: #2ee6a8 !important; }
+      .banner.v-GO_WITH_WARNINGS { background: rgba(255,176,32,0.14) !important; color: #ffb020 !important; }
+      .banner.v-NO_GO { background: rgba(255,77,106,0.16) !important; color: #ff4d6a !important; }
+    `;
+
     // The report is same-origin, so the frame grows to fit it instead of scrolling inside the page.
     let fitObserver = null;
     frame.addEventListener('load', () => {
       fitObserver?.disconnect();
       const doc = frame.contentDocument;
       if (!doc?.body) return;
+      const dark = doc.createElement('style');
+      dark.textContent = REPORT_DARK_CSS;
+      doc.head.append(dark);
       const fit = () => { frame.style.height = doc.documentElement.scrollHeight + 'px'; };
       fit();
       fitObserver = new ResizeObserver(fit);
