@@ -267,14 +267,17 @@ always switched off at the end (also after a crash or restart mid-test).
 2. **The camera pass** lights every model in view again and grades it against calibration,
    scaled to the night's typical model so dusk light or camera exposure doesn't count as a fault:
    The question is "does it light": a model lit or it didn't.
-   - **OFF** (blocker): under `off-ratio` of the typical brightness gain. A dark port or board is
-     one row ("Octa6 port 2: none of its 5 models lit"), not one per model. A port dark from one
-     model on, in wiring order, is one row naming the break ("data break between Vertical - UFR and
-     Eaves - UFR"). Nearly everything dark is one row (no power or data, or the camera moved).
+   - **OFF** (warning): under `off-ratio` of the typical brightness gain. Each dark model, port or
+     board is a warning, so the verdict is still GO (with warnings) and the email's "Needs
+     attention" table names them. A board that is really down already blocks in the Boards and
+     Power layers. A dark port or board is one row ("Octa6 port 2: none of its 5 models lit"), not
+     one per model. A port dark from one model on, in wiring order, is one row naming the break
+     ("data break between Vertical - UFR and Eaves - UFR"). Nearly everything dark (80% or more)
+     is the one light test blocker: no power or data, or the camera moved.
    - **Dim** (under `dim-ratio`, or under 60% of its usual lit area) still counts as lit; the
      summary only notes how many, since twilight makes floods and house-front props look dim.
    - **Soft models** (`soft-models`, name patterns such as `PeaceStake-*`) may hide behind other
-     props: one not seen is a note in the summary. Only their whole port going dark fails.
+     props: one not seen is a note in the summary. Only their whole port going dark is a warning.
    - The report shows every model lit at once, boxed green / yellow / red.
 3. **Later passes** (final, last look) repeat the camera result for `result-max-age-hours`, so the
    4:50 PM GO / NO-GO includes it without lighting anything again.

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ketronkowski.xlights.preshow.Outcome
+import com.ketronkowski.xlights.preshow.PreShowRun
+import com.ketronkowski.xlights.preshow.Verdict
 import com.ketronkowski.xlights.preshow.PreShowProperties
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -88,8 +90,8 @@ class LightTestTest {
         ))
         val r = LightTestChecker.results(run, null)
         assertEquals("3 of 6 models lit; 1 not in the camera's view; 1 dimmer than at calibration (twilight or part of a string; not a failure)", r[0].message)
-        assertTrue(r.any { it.outcome == Outcome.FAIL && it.target == "Octa6 port 2" })
-        assertTrue(r.any { it.outcome == Outcome.FAIL && it.target == "Stake" && it.message.contains("Octa7 port 3") })
+        assertTrue(r.any { it.outcome == Outcome.WARN && it.target == "Octa6 port 2" })
+        assertTrue(r.any { it.outcome == Outcome.WARN && it.target == "Stake" && it.message.contains("Octa7 port 3") })
         assertFalse(r.any { it.target == "Bush" }) // dim still lit: "does it light" is the question
         assertFalse(r.any { it.target == "W1" })
     }
@@ -106,13 +108,13 @@ class LightTestTest {
             ModelResult("Porch", "Octa5", 2, LightStatus.ON, 1.0, 1.0, 50),
         ))
         val r = LightTestChecker.results(run, null)
-        val brk = r.single { it.outcome == Outcome.FAIL }
+        val brk = r.single { it.outcome == Outcome.WARN }
         assertEquals("Octa5 port 3", brk.target)
         assertTrue(brk.message.contains("between Vertical - UFR and Eaves - UFR"), brk.message)
     }
 
     @Test
-    fun `a hidden peace stake is a note, but the whole string dark still fails`() {
+    fun `a hidden peace stake is a note, but the whole string dark is a warning`() {
         fun stakes(vararg off: Int) = (1..10).map {
             ModelResult("PeaceStake-$it", "Octa7", 3, if (it in off) LightStatus.OFF else LightStatus.ON, 1.0, 1.0, it * 10)
         } + (1..10).map { ModelResult("Snowflake-$it", "Octa7", 1, LightStatus.ON, 1.0, 1.0, it) }
@@ -122,9 +124,25 @@ class LightTestTest {
         assertEquals(Outcome.PASS, oneHidden[0].outcome)
         assertTrue(oneHidden[0].message.contains("may be hidden: PeaceStake-10"), oneHidden[0].message)
         val allDark = LightTestChecker.results(LightRun("r", Instant.EPOCH, Instant.EPOCH, stakes(*(1..10).toList().toIntArray())), null, soft)
-        assertTrue(allDark.any { it.outcome == Outcome.FAIL && it.target == "Octa7 port 3" })
-        // Without the soft rule the same stake is a failure.
-        assertTrue(LightTestChecker.results(LightRun("r", Instant.EPOCH, Instant.EPOCH, stakes(10)), null).any { it.outcome == Outcome.FAIL && it.target == "PeaceStake-10" })
+        assertTrue(allDark.any { it.outcome == Outcome.WARN && it.target == "Octa7 port 3" })
+        // Without the soft rule the same stake is a warning.
+        assertTrue(LightTestChecker.results(LightRun("r", Instant.EPOCH, Instant.EPOCH, stakes(10)), null).any { it.outcome == Outcome.WARN && it.target == "PeaceStake-10" })
+    }
+
+    @Test
+    fun `a couple of dark models are warnings and the show is still a GO`() {
+        // 2026-11-25 4:35 PM: 148 of 150 lit, two models on Front Right port 2 dark.
+        val run = LightRun("r", Instant.EPOCH, Instant.EPOCH, listOf(
+            ModelResult("Tree Star - Right", "Front Right", 2, LightStatus.OFF, 0.0, 0.0, 100),
+            ModelResult("Tree - Entry Right", "Front Right", 2, LightStatus.OFF, 0.0, 0.0, 200),
+            ModelResult("Window - Right", "Front Right", 2, LightStatus.ON, 1.0, 1.0, 300),
+        ) + (1..20).map { ModelResult("Arch-$it", "Octa5", 1, LightStatus.ON, 1.0, 1.0, it) })
+        val r = LightTestChecker.results(run, "from the 4:35 PM camera test")
+        val warned = r.filter { it.outcome == Outcome.WARN }.map { it.target }
+        assertEquals(listOf("Tree Star - Right", "Tree - Entry Right"), warned)
+        assertTrue(r.none { it.outcome == Outcome.FAIL })
+        assertTrue(r[1].message.contains("Front Right port 2"), r[1].message)
+        assertEquals(Verdict.GO_WITH_WARNINGS, PreShowRun.verdictOf(r))
     }
 
     @Test

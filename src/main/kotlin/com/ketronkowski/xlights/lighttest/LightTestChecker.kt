@@ -48,10 +48,12 @@ class LightTestChecker(
 
         /**
          * "Does it light" is the question: a model either lit or it didn't. Dim is only a note.
-         * One row per problem, rolled up so a dead board, port or wiring break is one line, not
+         * Dark models, ports and boards are warnings, so the show still gets a GO: the board and
+         * power layers already block on a board that's down, and a few dark props don't stop the
+         * show (Kevin, 2026-11-25). Only most of the show dark is a blocker. One row per problem, rolled up so a dead board, port or wiring break is one line, not
          * forty: a whole controller dark, then a whole port dark, then a port dark from one
          * model on (a data break), then single models. [softModels] (name patterns) may hide
-         * behind other props, so one of them not lighting is a note unless its whole port is dark.
+         * behind other props, so one of them not lighting is a note unless its whole port is dark (a warning).
          */
         fun results(run: LightRun, note: String?, softModels: List<String> = emptyList()): List<CheckResult> {
             val suffix = note?.let { " ($it)" } ?: ""
@@ -68,13 +70,13 @@ class LightTestChecker(
             val covered = mutableSetOf<String>()
             for ((ctrl, models) in tested.groupBy { it.controller }) {
                 if (models.size >= 2 && models.all { it.status == LightStatus.OFF }) {
-                    out += CheckResult.fail(LAYER, "Board lit", ctrl, "none of its ${models.size} models in view lit: board, power or data problem$suffix")
+                    out += CheckResult.warn(LAYER, "Board lit", ctrl, "none of its ${models.size} models in view lit: board, power or data problem$suffix")
                     covered += models.map { it.name }
                     continue
                 }
                 for ((port, onPort) in models.filter { it.port != null }.groupBy { it.port }) {
                     if (onPort.size >= 2 && onPort.all { it.status == LightStatus.OFF }) {
-                        out += CheckResult.fail(LAYER, "Port lit", "$ctrl port $port",
+                        out += CheckResult.warn(LAYER, "Port lit", "$ctrl port $port",
                             "none of its ${onPort.size} models lit: port, fuse, power injection or first pixel$suffix")
                         covered += onPort.map { it.name }
                         continue
@@ -84,7 +86,7 @@ class LightTestChecker(
                     val lastLit = wired.indexOfLast { it.status != LightStatus.OFF }
                     val tail = if (lastLit >= 0) wired.drop(lastLit + 1) else emptyList()
                     if (tail.size >= 2) {
-                        out += CheckResult.fail(LAYER, "Port lit", "$ctrl port $port",
+                        out += CheckResult.warn(LAYER, "Port lit", "$ctrl port $port",
                             "dark from ${tail.first().name} on (${tail.size} models): data break between ${wired[lastLit].name} and ${tail.first().name}$suffix")
                         covered += tail.map { it.name }
                     }
@@ -92,7 +94,7 @@ class LightTestChecker(
             }
             val hidden = off.filter { it.name !in covered && isSoft(it) }
             for (m in off.filter { it.name !in covered && !isSoft(it) }) {
-                out += CheckResult.fail(LAYER, "Model lit", m.name, "didn't light (${m.where})$suffix")
+                out += CheckResult.warn(LAYER, "Model lit", m.name, "didn't light (${m.where})$suffix")
             }
             val lit = tested.size - off.size
             val dim = tested.count { it.status == LightStatus.DIM }
