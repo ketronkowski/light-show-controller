@@ -30,8 +30,11 @@ class ReportRenderer(private val props: PreShowProperties) {
         }
         val secs = java.time.Duration.between(run.startedAt, run.finishedAt).seconds
         val sb = StringBuilder()
-        sb.append("""<!doctype html><html><body style="margin:0;padding:16px;background:#f1f3f4;font-family:Arial,Helvetica,sans-serif;color:#202124">""")
-        sb.append("""<div style="background:#ffffff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.15);max-width:700px;margin:0 auto;padding:24px">""")
+        sb.append("""<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">""")
+        // Narrow screens (the app's report frame on a phone, phone mail apps that honour <style>): less padding.
+        sb.append("""<style>@media (max-width:520px){body{padding:0 !important}.report-card{padding:14px !important;border-radius:0 !important;box-shadow:none !important}td{padding:5px 6px !important}h1{font-size:20px !important}}</style>""")
+        sb.append("""</head><body style="margin:0;padding:16px;background:#f1f3f4;font-family:Arial,Helvetica,sans-serif;color:#202124">""")
+        sb.append("""<div class="report-card" style="background:#ffffff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.15);max-width:700px;margin:0 auto;padding:24px">""")
         sb.append("""<h1 style="font-size:24px;margin:0 0 12px 0">Pre-show Check — ${esc(time.format(run.startedAt))}</h1>""")
         sb.append("""<div style="background:$bannerBg;color:$bannerFg;border-radius:6px;padding:12px;font-weight:bold;text-align:center;font-size:16px">$icon ${esc(run.headline())}</div>""")
         sb.append("""<p style="font-size:13px;color:#5f6368;margin:12px 0 0 0">Pass: <b>${esc(run.pass)}</b> · took $secs s""")
