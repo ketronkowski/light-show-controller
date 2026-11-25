@@ -302,3 +302,40 @@ After a repair, **Recalibrate missing models** on the page (or `POST /api/lightt
 relights only the models the saved calibration couldn't see and merges them in (under a minute).
 
 The app needs HTTPS to the console and HTTP to FPP from the cluster.
+
+## Jukebox interrupt test (Jukebox layer)
+
+Checks that Remote Falcon requests behave the way the show needs, with FPP really playing:
+
+1. **Background plays**: the test starts the Background playlist.
+2. **Request cuts in**: it queues the test sequence in Remote Falcon as an owner request
+   (`POST <plugins-url>/addTestRequest`, header `remotetoken`, no GPS). With the plugin's
+   **Interrupt Schedule** on, FPP must switch to the Remote playlist within `cut-in-seconds` (10).
+3. **Next request waits**: a second request made while the first plays must wait. The first
+   plays to its end (3 s or less left), then the second starts.
+4. **Background resumes**: with the queue empty, Background comes back with the song it paused,
+   within a few seconds of where it paused.
+
+The test sequence (`test-sequence`, "Althea Test": the first 20 s of Althea) must be an entry
+of FPP's Remote playlist, because Remote Falcon only queues what that playlist syncs. Hide it in
+Remote Falcon (Sequences, visible off) so viewers can't request it.
+
+FPP is muted (`mute: true`) while it runs, so nothing reaches FM or the road speakers. Cleanup
+always runs, also after a failure: Stop Now, purge the request queue, put the volume back. A
+failed step is a warning (the show still plays; requests just behave differently). A failed
+cleanup is a blocker, since FPP may be left playing or muted.
+
+Guards: FPP must be idle. Scheduled runs start no later than `latest-start-minutes` (10) before
+show start, so the cleanup never stops the show; a run started by hand
+(`POST /api/jukebox/run`) has no time limit. It takes about 1.5 minutes. Later passes repeat the
+result for `result-max-age-hours` (3). The latest result is at `GET /api/jukebox/last`.
+
+```yaml
+preshow:
+  passes:
+    - { name: jukebox, cron: "0 43 16 * * *", layers: [Jukebox] }
+  jukebox:
+    plugins-url: https://plugins.rf.tronkowski.org
+    show-token: ${RF_SHOW_TOKEN}
+    test-sequence: Althea Test
+```
