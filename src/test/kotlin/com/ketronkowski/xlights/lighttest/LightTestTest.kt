@@ -87,11 +87,44 @@ class LightTestTest {
             ModelResult("Mailbox", "Mailbox", 1, LightStatus.NOT_IN_VIEW),
         ))
         val r = LightTestChecker.results(run, null)
-        assertEquals("2 of 6 models lit; 1 not in the camera's view", r[0].message)
+        assertEquals("3 of 6 models lit; 1 not in the camera's view; 1 dimmer than at calibration (twilight or part of a string; not a failure)", r[0].message)
         assertTrue(r.any { it.outcome == Outcome.FAIL && it.target == "Octa6 port 2" })
         assertTrue(r.any { it.outcome == Outcome.FAIL && it.target == "Stake" && it.message.contains("Octa7 port 3") })
-        assertTrue(r.any { it.outcome == Outcome.WARN && it.target == "Bush" })
+        assertFalse(r.any { it.target == "Bush" }) // dim still lit: "does it light" is the question
         assertFalse(r.any { it.target == "W1" })
+    }
+
+    @Test
+    fun `a data break part way along a port is one line naming where it breaks`() {
+        // Octa5 port 3 on 2026-11-23: lit up to Vertical - UFR, dark after it.
+        val run = LightRun("r", Instant.EPOCH, Instant.EPOCH, listOf(
+            ModelResult("Vertical - UFR", "Octa5", 3, LightStatus.ON, 1.0, 1.0, 100),
+            ModelResult("Eaves - UFR", "Octa5", 3, LightStatus.OFF, 0.0, 0.0, 200),
+            ModelResult("Vertical - UNR", "Octa5", 3, LightStatus.OFF, 0.0, 0.0, 300),
+            ModelResult("Eaves - UNR", "Octa5", 3, LightStatus.OFF, 0.0, 0.0, 400),
+            ModelResult("Garage", "Octa5", 1, LightStatus.ON, 1.0, 1.0, 1),
+            ModelResult("Porch", "Octa5", 2, LightStatus.ON, 1.0, 1.0, 50),
+        ))
+        val r = LightTestChecker.results(run, null)
+        val brk = r.single { it.outcome == Outcome.FAIL }
+        assertEquals("Octa5 port 3", brk.target)
+        assertTrue(brk.message.contains("between Vertical - UFR and Eaves - UFR"), brk.message)
+    }
+
+    @Test
+    fun `a hidden peace stake is a note, but the whole string dark still fails`() {
+        fun stakes(vararg off: Int) = (1..10).map {
+            ModelResult("PeaceStake-$it", "Octa7", 3, if (it in off) LightStatus.OFF else LightStatus.ON, 1.0, 1.0, it * 10)
+        } + (1..10).map { ModelResult("Snowflake-$it", "Octa7", 1, LightStatus.ON, 1.0, 1.0, it) }
+        val soft = listOf("PeaceStake-*")
+        val oneHidden = LightTestChecker.results(LightRun("r", Instant.EPOCH, Instant.EPOCH, stakes(10)), null, soft)
+        assertEquals(1, oneHidden.size)
+        assertEquals(Outcome.PASS, oneHidden[0].outcome)
+        assertTrue(oneHidden[0].message.contains("may be hidden: PeaceStake-10"), oneHidden[0].message)
+        val allDark = LightTestChecker.results(LightRun("r", Instant.EPOCH, Instant.EPOCH, stakes(*(1..10).toList().toIntArray())), null, soft)
+        assertTrue(allDark.any { it.outcome == Outcome.FAIL && it.target == "Octa7 port 3" })
+        // Without the soft rule the same stake is a failure.
+        assertTrue(LightTestChecker.results(LightRun("r", Instant.EPOCH, Instant.EPOCH, stakes(10)), null).any { it.outcome == Outcome.FAIL && it.target == "PeaceStake-10" })
     }
 
     @Test

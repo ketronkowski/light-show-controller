@@ -64,6 +64,8 @@ data class ModelResult(
     val level: Double? = null,
     /** Share of the model's calibrated area that lit up, scaled the same way. */
     val area: Double? = null,
+    /** First FPP channel, which gives the wiring order along a port. */
+    val firstChannel: Int? = null,
 ) {
     @get:com.fasterxml.jackson.annotation.JsonIgnore
     val where: String get() = if (port != null) "$controller port $port" else controller

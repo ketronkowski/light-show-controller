@@ -260,10 +260,15 @@ always switched off at the end (also after a crash or restart mid-test).
    (`/api/lighttest/calibration.jpg`) boxes every model it found. Re-calibrate if the camera moves.
 2. **The camera pass** lights every model in view again and grades it against calibration,
    scaled to the night's typical model so dusk light or camera exposure doesn't count as a fault:
+   The question is "does it light": a model lit or it didn't.
    - **OFF** (blocker): under `off-ratio` of the typical brightness gain. A dark port or board is
-     one row ("Octa6 port 2: none of its 5 models lit"), not one per model; nearly everything dark
-     is one row (no power or data, or the camera moved).
-   - **DIM** (warning): under `dim-ratio`, or under 60% of its usual lit area (part of a string out).
+     one row ("Octa6 port 2: none of its 5 models lit"), not one per model. A port dark from one
+     model on, in wiring order, is one row naming the break ("data break between Vertical - UFR and
+     Eaves - UFR"). Nearly everything dark is one row (no power or data, or the camera moved).
+   - **Dim** (under `dim-ratio`, or under 60% of its usual lit area) still counts as lit; the
+     summary only notes how many, since twilight makes floods and house-front props look dim.
+   - **Soft models** (`soft-models`, name patterns such as `PeaceStake-*`) may hide behind other
+     props: one not seen is a note in the summary. Only their whole port going dark fails.
    - The report shows every model lit at once, boxed green / yellow / red.
 3. **Later passes** (final, last look) repeat the camera result for `result-max-age-hours`, so the
    4:50 PM GO / NO-GO includes it without lighting anything again.
@@ -284,6 +289,10 @@ preshow:
     color: "#808080"
     settle-ms: 900       # the light reaches Protect's snapshot 0.3-0.6 s after FPP lights it
     ignore-models: []
+    soft-models: ["PeaceStake-*"]   # one serial string; single stakes hide behind the mega tree
 ```
+
+After a repair, **Recalibrate missing models** on the page (or `POST /api/lighttest/calibrate?missing=true`)
+relights only the models the saved calibration couldn't see and merges them in (under a minute).
 
 The app needs HTTPS to the console and HTTP to FPP from the cluster.
