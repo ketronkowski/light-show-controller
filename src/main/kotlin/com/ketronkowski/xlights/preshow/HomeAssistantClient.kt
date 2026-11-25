@@ -25,6 +25,12 @@ class HomeAssistantClient(
         http.post("$base/api/states/$entityId", mapOf("state" to state, "attributes" to attributes), auth)
     }
 
+    /** Turns a switch on or off (`switch.turn_on` / `switch.turn_off`). Errors are thrown. */
+    fun setSwitch(entityId: String, on: Boolean) {
+        val domain = entityId.substringBefore('.', "switch")
+        http.post("$base/api/services/$domain/${if (on) "turn_on" else "turn_off"}", mapOf("entity_id" to entityId), auth)
+    }
+
     /** Sends a push through a notify service; never throws. */
     fun notify(title: String, message: String, url: String? = null): Boolean {
         if (!configured || ha.notifyService.isBlank()) return false

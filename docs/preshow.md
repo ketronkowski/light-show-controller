@@ -82,6 +82,8 @@ preshow:
     circuit-switch-entity: switch.show_circuit
     plugs:
       Presents: switch.presents_plug
+    switches:                                    # on/off buttons on the Show Control page
+      "[Road speakers]": switch.front_yard_light_show_fm_speakers
     enabled-entity: input_boolean.preshow_enabled
     report-url: https://light-show.example.net
   web:

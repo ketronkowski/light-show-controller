@@ -98,3 +98,12 @@ body.show-page { padding: 0 1rem calc(2rem + env(safe-area-inset-bottom)); }
 .sc-songs li::before { counter-increment: song; content: counter(song); color: var(--text-faint); font-family: var(--font-mono); min-width: 1.4rem; }
 .sc-songs li.current { color: var(--accent); font-weight: 600; }
 .sc-songs .sc-right { margin-left: auto; color: var(--text-faint); font-family: var(--font-mono); font-size: 0.78rem; }
+
+/* Switches the page can flip (road speakers) */
+.sc-switches .sc-right { display: inline-flex; align-items: center; gap: 0.6rem; }
+.sc-toggle {
+  font: 600 0.8rem var(--font-mono); padding: 0.35rem 0.8rem; min-height: 2.25rem; border-radius: 6px; cursor: pointer;
+  background: transparent; color: var(--text); border: 1px solid var(--border-strong);
+}
+.sc-toggle.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.sc-toggle:disabled { opacity: 0.5; cursor: default; }

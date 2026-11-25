@@ -47,7 +47,12 @@ data class PowerNow(
     val plugs: List<PlugNow> = emptyList(),
     /** Show circuit watts, oldest first, one point per sample (about every 30 s), up to an hour. */
     val history: List<PowerSample> = emptyList(),
+    /** Things the page can switch on and off, such as the road speakers. */
+    val switches: List<SwitchNow> = emptyList(),
 )
+
+/** A Home Assistant switch the page can flip. [state] is on, off, unavailable or unreadable. */
+data class SwitchNow(val label: String, val entity: String, val state: String)
 
 data class CircuitNow(
     val entity: String,
