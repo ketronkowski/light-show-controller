@@ -4,6 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0d12" />
+  <!-- Home-screen app. use-credentials: the manifest fetch must carry the client certificate / Cloudflare login like the page does. -->
+  <link rel="manifest" href="manifest.json" crossorigin="use-credentials" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <title>Light Show Controller</title>
   <style>body { background: #0a0d12; color: #e7ebf2; font-family: system-ui, sans-serif; } a { color: #ffb020; }</style>
   <!-- Opens the tab this device used last (nav.js remembers it), or Show Control the first time. -->
