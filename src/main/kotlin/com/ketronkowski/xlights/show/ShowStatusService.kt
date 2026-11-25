@@ -103,7 +103,27 @@ class ShowStatusService(
                 PlugNow(label, entity, state, watts, cfg.plugBoards[label] ?: listOf(label))
             }, pool)
         }.map { it.join() }
-        return PowerNow(true, circuit, plugs, history.toList())
+        val switches = cfg.switches.map { (label, entity) ->
+            CompletableFuture.supplyAsync({ SwitchNow(label, entity, switchState(entity)) }, pool)
+        }.map { it.join() }
+        return PowerNow(true, circuit, plugs, history.toList(), switches)
+    }
+
+    private fun switchState(entity: String): String =
+        runCatching { ha.state(entity).path("state").asText("unknown") }.getOrDefault("unreadable")
+
+    /**
+     * Turns one of the configured [PreShowProperties.HomeAssistant.switches] on or off, by its
+     * label (never an arbitrary entity), and returns its state afterwards.
+     */
+    fun setSwitch(label: String, on: Boolean): SwitchNow {
+        val (name, entity) = props.ha.switches.entries.firstOrNull { it.key.equals(label, ignoreCase = true) }?.toPair()
+            ?: throw NoSuchElementException("no switch named \"$label\"")
+        check(ha.configured) { "Home Assistant is not configured" }
+        log.info("Show Control: turning {} ({}) {}", name, entity, if (on) "on" else "off")
+        ha.setSwitch(entity, on)
+        cached = null
+        return SwitchNow(name, entity, switchState(entity))
     }
 
     private fun circuitNow(): CircuitNow? {

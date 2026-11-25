@@ -1,4 +1,4 @@
-// Show Control page: FPP playback, power and board status. Read-only for now.
+// Show Control page: FPP playback, power and board status, plus switches such as the road speakers.
 'use strict';
 
 const POLL_MS = 5000;
@@ -142,7 +142,39 @@ function renderPower(p) {
         (pl.boards.length > 1 || pl.boards[0] !== pl.label) ? el('span', { class: 'sc-note', text: pl.boards.join(', ') }) : null),
       el('span', { class: 'sc-right', text: pl.watts != null ? `${num(pl.watts)} W · ${pl.state}` : pl.state })))));
   }
+  if (p.switches?.length) {
+    kids.push(el('ul', { class: 'sc-rows sc-switches' }, p.switches.map(sw => {
+      const on = sw.state === 'on', known = sw.state === 'on' || sw.state === 'off';
+      const busy = switchBusy.has(sw.label);
+      const btn = el('button', { type: 'button', class: `sc-toggle${on ? ' on' : ''}`, disabled: !known || busy ? '' : null,
+        'aria-pressed': on ? 'true' : 'false', text: busy ? '…' : on ? 'Turn off' : 'Turn on' });
+      btn.addEventListener('click', () => flipSwitch(sw.label, !on));
+      return el('li', {}, led(on ? 'ok' : known ? '' : 'warn'),
+        el('span', { class: 'sc-name' }, sw.label),
+        el('span', { class: 'sc-right' }, el('span', { class: 'sc-sw-state', text: sw.state }), btn));
+    })));
+    if (switchError) kids.push(el('p', { class: 'sc-err', text: switchError }));
+  }
   body.replaceChildren(...kids);
+}
+
+const switchBusy = new Set();
+let switchError = null;
+async function flipSwitch(label, on) {
+  switchBusy.add(label); switchError = null;
+  if (lastStatus) renderPower(lastStatus.power);
+  try {
+    const res = await fetch('api/show/switch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label, on }) });
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}));
+      switchError = `${label}: ${b.error || `HTTP ${res.status}`}`;
+    }
+  } catch (e) {
+    switchError = `${label}: ${e.message}`;
+  } finally {
+    switchBusy.delete(label);
+    await poll();
+  }
 }
 
 function renderBoards(boards) {

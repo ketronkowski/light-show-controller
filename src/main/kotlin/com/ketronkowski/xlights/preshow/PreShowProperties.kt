@@ -101,6 +101,11 @@ data class PreShowProperties(
         val plugBoards: Map<String, List<String>> = emptyMap(),
         /** Plug label → its power sensor in watts, for plugs that measure power. */
         val plugPower: Map<String, String> = emptyMap(),
+        /**
+         * Label → switch entity id for things the Show Control page may turn on and off
+         * (e.g. "Road speakers"). Only these entities can be switched from the app.
+         */
+        val switches: Map<String, String> = emptyMap(),
         /** input_boolean that turns scheduled runs off (kill switch). Blank = no toggle. */
         val enabledEntity: String = "",
         /** Sensor the app writes its latest result to, for dashboards and the "did not run" backstop. */
