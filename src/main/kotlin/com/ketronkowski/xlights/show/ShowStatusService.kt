@@ -45,6 +45,8 @@ class ShowStatusService(
         const val NOMINAL_VOLTS = 120.0
         val HISTORY_SPAN: Duration = Duration.ofHours(1)
         val CACHE_FOR: Duration = Duration.ofSeconds(2)
+        /** Switch states Home Assistant can act on; anything else (unavailable, unknown, unreadable) can't be switched. */
+        val CONTROLLABLE = setOf("on", "off")
     }
 
     fun fppHost(): String? = props.fpp.host.ifBlank { null } ?: controllers().firstOrNull { it.isFpp }?.ipAddress
@@ -114,11 +116,14 @@ class ShowStatusService(
 
     /**
      * Turns the FM speakers on or off through Home Assistant and returns their state afterwards.
-     * Throws [IllegalStateException] when no speakers switch is configured.
+     * Throws [IllegalStateException] when no speakers switch is configured, or when Home Assistant reports it
+     * as unavailable/unknown (the plug is offline) or can't be read, so nothing is sent to a switch that can't act.
      */
     fun setSpeakers(on: Boolean): SpeakersNow {
         check(ha.configured) { "Home Assistant is not configured" }
         val entity = props.ha.speakersEntity.ifBlank { throw IllegalStateException("no speakers switch is configured") }
+        val current = speakersNow()?.state ?: "unknown"
+        check(current in CONTROLLABLE) { "the speakers switch is $current in Home Assistant" }
         ha.callService("switch", if (on) "turn_on" else "turn_off", entity)
         log.info("FM speakers turned {} from the Show Control page", if (on) "on" else "off")
         cached = null

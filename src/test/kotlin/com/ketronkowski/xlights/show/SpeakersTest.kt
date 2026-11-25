@@ -11,6 +11,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -57,6 +58,23 @@ class SpeakersTest {
         val ha = ha("on")
         assertThrows<IllegalStateException> { service(ha, speakersEntity = "").setSpeakers(true) }
         verify(ha, never()).callService(any(), any(), any())
+    }
+
+    @Test
+    fun `an unavailable unknown or unreadable switch is refused and nothing is sent`() {
+        for (state in listOf("unavailable", "unknown")) {
+            val ha = ha(state)
+            val e = assertThrows<IllegalStateException> { service(ha).setSpeakers(true) }
+            assertEquals("the speakers switch is $state in Home Assistant", e.message)
+            verify(ha, never()).callService(any(), any(), any())
+        }
+        val unreadable: HomeAssistantClient = mock {
+            on { configured } doReturn true
+            on { state(entity) } doThrow RuntimeException("connection refused")
+        }
+        val e = assertThrows<IllegalStateException> { service(unreadable).setSpeakers(false) }
+        assertEquals("the speakers switch is unreadable in Home Assistant", e.message)
+        verify(unreadable, never()).callService(any(), any(), any())
     }
 
     @Test

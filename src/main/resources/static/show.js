@@ -146,14 +146,14 @@ function speakersRow(sp) {
   const on = st === 'on';
   const known = st === 'on' || st === 'off';
   const btn = el('button', {
-    type: 'button', class: 'action sc-speakers-btn', disabled: speakersBusy || null,
+    type: 'button', class: 'action sc-speakers-btn', disabled: (speakersBusy || !known) || null,
     'aria-label': on ? 'Turn the FM speakers off' : 'Turn the FM speakers on',
-  }, speakersBusy ? 'Working…' : on ? 'Turn off' : 'Turn on');
-  btn.addEventListener('click', () => setSpeakers(!on));
+  }, speakersBusy ? 'Working…' : !known ? 'Unavailable' : on ? 'Turn off' : 'Turn on');
+  if (known) btn.addEventListener('click', () => setSpeakers(!on));
   return el('ul', { class: 'sc-rows' }, el('li', {},
     led(on ? 'ok' : st === 'off' ? '' : 'warn'),
     el('span', { class: 'sc-name' }, 'FM speakers',
-      el('span', { class: 'sc-note', text: speakersMsg || (known ? `speakers are ${st}` : `switch is ${st}`) })),
+      el('span', { class: 'sc-note', text: speakersMsg || (known ? `speakers are ${st}` : `switch is ${st} in Home Assistant`) })),
     el('span', { class: 'sc-right' }, btn)));
 }
 
