@@ -28,7 +28,9 @@ class FppJukeboxRig(
     }
 
     override fun stopNow() {
-        http.get("$fpp/api/playlists/stop", fppAuth)
+        // FPP answers in plain text ("Stopped"), not JSON.
+        val (code, body) = http.getText("$fpp/api/playlists/stop", fppAuth)
+        check(code in 200..299) { "HTTP $code ${body.take(80)}" }
     }
 
     override fun volume(): Int? = http.get("$fpp/api/system/volume", fppAuth).body.path("volume").takeIf { !it.isMissingNode }?.asInt()
