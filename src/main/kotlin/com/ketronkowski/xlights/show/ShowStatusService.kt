@@ -103,7 +103,26 @@ class ShowStatusService(
                 PlugNow(label, entity, state, watts, cfg.plugBoards[label] ?: listOf(label))
             }, pool)
         }.map { it.join() }
-        return PowerNow(true, circuit, plugs, history.toList())
+        return PowerNow(true, circuit, plugs, speakersNow(), history.toList())
+    }
+
+    private fun speakersNow(): SpeakersNow? {
+        val entity = props.ha.speakersEntity.ifBlank { return null }
+        val state = runCatching { ha.state(entity).path("state").asText("unknown") }.getOrDefault("unreadable")
+        return SpeakersNow(entity, state)
+    }
+
+    /**
+     * Turns the FM speakers on or off through Home Assistant and returns their state afterwards.
+     * Throws [IllegalStateException] when no speakers switch is configured.
+     */
+    fun setSpeakers(on: Boolean): SpeakersNow {
+        check(ha.configured) { "Home Assistant is not configured" }
+        val entity = props.ha.speakersEntity.ifBlank { throw IllegalStateException("no speakers switch is configured") }
+        ha.callService("switch", if (on) "turn_on" else "turn_off", entity)
+        log.info("FM speakers turned {} from the Show Control page", if (on) "on" else "off")
+        cached = null
+        return speakersNow() ?: SpeakersNow(entity, "unknown")
     }
 
     private fun circuitNow(): CircuitNow? {

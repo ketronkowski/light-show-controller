@@ -92,6 +92,8 @@ data class PreShowProperties(
         val powerEntity: String = "",
         /** The show circuit's own relay (e.g. the Shelly switch). Off = no power to the show. */
         val circuitSwitchEntity: String = "",
+        /** Switch for the yard's FM speakers, turned on/off from the Show Control page. Blank = no control. */
+        val speakersEntity: String = "",
         val minVoltage: Double = 110.0,
         /** Highest believable standby current with the show black, in amps. 0 = skip. */
         val maxStandbyAmps: Double = 0.0,

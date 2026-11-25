@@ -98,3 +98,6 @@ body.show-page { padding: 0 1rem calc(2rem + env(safe-area-inset-bottom)); }
 .sc-songs li::before { counter-increment: song; content: counter(song); color: var(--text-faint); font-family: var(--font-mono); min-width: 1.4rem; }
 .sc-songs li.current { color: var(--accent); font-weight: 600; }
 .sc-songs .sc-right { margin-left: auto; color: var(--text-faint); font-family: var(--font-mono); font-size: 0.78rem; }
+
+/* FM speakers on/off: the button sits where the other rows show their state */
+.sc-rows .sc-right .sc-speakers-btn { font-family: var(--font-display); font-size: 0.78rem; white-space: nowrap; }

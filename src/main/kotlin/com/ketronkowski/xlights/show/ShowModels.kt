@@ -45,6 +45,8 @@ data class PowerNow(
     val configured: Boolean,
     val circuit: CircuitNow? = null,
     val plugs: List<PlugNow> = emptyList(),
+    /** The yard's FM speakers switch, when configured (`preshow.ha.speakers-entity`). */
+    val speakers: SpeakersNow? = null,
     /** Show circuit watts, oldest first, one point per sample (about every 30 s), up to an hour. */
     val history: List<PowerSample> = emptyList(),
 )
@@ -68,6 +70,12 @@ data class PlugNow(
     val watts: Double? = null,
     /** xLights controller names this plug powers. */
     val boards: List<String>,
+)
+
+data class SpeakersNow(
+    val entity: String,
+    /** on, off, unavailable, or "unreadable" when Home Assistant didn't answer. */
+    val state: String,
 )
 
 /** One show-circuit reading. [amps] is measured when a current sensor is set, else watts ÷ volts. */

@@ -80,6 +80,7 @@ preshow:
     current-entity: sensor.show_circuit_current
     power-entity: sensor.show_circuit_power      # used when there is no current sensor
     circuit-switch-entity: switch.show_circuit
+    speakers-entity: switch.front_yard_light_show_fm_speakers   # FM speakers on/off button on the Show Control page
     plugs:
       Presents: switch.presents_plug
     enabled-entity: input_boolean.preshow_enabled

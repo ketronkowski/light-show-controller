@@ -1,4 +1,4 @@
-// Show Control page: FPP playback, power and board status. Read-only for now.
+// Show Control page: FPP playback, power and board status, and the FM speakers switch.
 'use strict';
 
 const POLL_MS = 5000;
@@ -117,6 +117,46 @@ function sparkline(history) {
   return wrap;
 }
 
+// FM speakers: kept outside renderPower, which rebuilds the card every 5 s.
+let speakersBusy = false;
+let speakersMsg = '';
+
+async function setSpeakers(on) {
+  if (speakersBusy) return;
+  speakersBusy = true; speakersMsg = '';
+  if (lastStatus) renderPower(lastStatus.power);
+  try {
+    const res = await fetch('api/show/speakers', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    if (lastStatus?.power) lastStatus.power.speakers = body;
+  } catch (e) {
+    speakersMsg = `Couldn't turn the speakers ${on ? 'on' : 'off'}: ${e.message}`;
+  } finally {
+    speakersBusy = false;
+    if (lastStatus) renderPower(lastStatus.power);
+    poll();
+  }
+}
+
+function speakersRow(sp) {
+  const st = sp.state || 'unknown';
+  const on = st === 'on';
+  const known = st === 'on' || st === 'off';
+  const btn = el('button', {
+    type: 'button', class: 'action sc-speakers-btn', disabled: speakersBusy || null,
+    'aria-label': on ? 'Turn the FM speakers off' : 'Turn the FM speakers on',
+  }, speakersBusy ? 'Working…' : on ? 'Turn off' : 'Turn on');
+  btn.addEventListener('click', () => setSpeakers(!on));
+  return el('ul', { class: 'sc-rows' }, el('li', {},
+    led(on ? 'ok' : st === 'off' ? '' : 'warn'),
+    el('span', { class: 'sc-name' }, 'FM speakers',
+      el('span', { class: 'sc-note', text: speakersMsg || (known ? `speakers are ${st}` : `switch is ${st}`) })),
+    el('span', { class: 'sc-right' }, btn)));
+}
+
 function renderPower(p) {
   const body = $('powerBody');
   if (!p.configured) { body.replaceChildren(el('p', { class: 'sc-dim', text: 'Home Assistant is not configured.' })); return; }
@@ -135,6 +175,7 @@ function renderPower(p) {
     const sp = sparkline(p.history);
     if (sp) kids.push(sp);
   }
+  if (p.speakers) kids.push(speakersRow(p.speakers));
   if (p.plugs.length) {
     kids.push(el('ul', { class: 'sc-rows' }, p.plugs.map(pl => el('li', {},
       led(pl.state === 'on' ? 'ok' : pl.state === 'off' ? 'err' : 'warn'),

@@ -25,6 +25,11 @@ class HomeAssistantClient(
         http.post("$base/api/states/$entityId", mapOf("state" to state, "attributes" to attributes), auth)
     }
 
+    /** Calls a service on one entity, e.g. `switch.turn_on`. Throws when Home Assistant refuses or can't be reached. */
+    fun callService(domain: String, service: String, entityId: String) {
+        http.post("$base/api/services/$domain/$service", mapOf("entity_id" to entityId), auth)
+    }
+
     /** Sends a push through a notify service; never throws. */
     fun notify(title: String, message: String, url: String? = null): Boolean {
         if (!configured || ha.notifyService.isBlank()) return false
