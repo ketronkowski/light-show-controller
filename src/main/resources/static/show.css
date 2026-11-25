@@ -1,5 +1,7 @@
 /* Show Control page. Phone first: one column, wider screens flow into more. */
 body.show-page { padding: 0 1rem calc(2rem + env(safe-area-inset-bottom)); }
+/* Laptop: the same side margin as Controllers and the Boundary finder, so the tabs don't shift between pages. */
+@media (min-width: 761px) and (min-height: 501px) { body.show-page { padding-left: 1.5rem; padding-right: 1.5rem; } }
 
 .sc-top {
   display: flex; align-items: center; gap: 0.75rem;

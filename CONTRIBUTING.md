@@ -28,6 +28,7 @@ Absolutely, here's the flow:
 A few things that make review faster:
 - **Keep it focused.** A PR that does one thing is much easier to review (and much easier to revert if something's wrong) than one that bundles a feature with an unrelated refactor.
 - **Match the existing style.** No linter/formatter is enforced here — just take a look at the surrounding code and follow its conventions.
+- **UI changes: show it on a phone.** `node scripts/phone-screenshots/shoot.mjs` screenshots every page at phone, landscape and laptop sizes (with made-up data, or `--base <preview URL>` for the real app) and flags any page that scrolls sideways. Attach the relevant pictures to the PR.
 - **Explain non-obvious decisions in the PR description**, not just in code comments — it helps me understand your reasoning during review even before I open the diff.
 
 ## Commit / PR title convention

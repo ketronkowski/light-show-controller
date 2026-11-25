@@ -4,7 +4,7 @@ body.measure { padding: 0 1.5rem 3rem; }
 body.measure > :not(.tabbar) { max-width: 640px; margin-left: auto; margin-right: auto; }
 
 .m-top { display: flex; align-items: baseline; gap: 1rem; padding: 1rem 0 0.5rem; }
-.m-top h1 { font-size: 1.3rem; margin: 0; }
+.m-top h1 { font-size: 1.35rem; margin: 0; }
 
 .m-panel {
   background: var(--bg-elevated);
@@ -92,6 +92,7 @@ body.measure > :not(.tabbar) { max-width: 640px; margin-left: auto; margin-right
     background: var(--bg-elevated);
     border-top: 1px solid var(--border);
   }
+  .m-runbar > button { font-size: 0.9rem; padding: 0 0.5rem; }
   body.measure.has-tabbar:not(.has-sel-bar) { padding-bottom: calc(56px + 64px + 1.5rem + env(safe-area-inset-bottom, 0px)); }
 }
 
