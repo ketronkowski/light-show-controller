@@ -35,6 +35,7 @@ data class PreShowProperties(
     val web: List<WebCheck> = emptyList(),
     val email: Email = Email(),
     val lights: LightTest = LightTest(),
+    val jukebox: JukeboxTest = JukeboxTest(),
     /** Run files older than this many days are deleted. */
     val keepDays: Long = 60,
 ) {
@@ -169,6 +170,34 @@ data class PreShowProperties(
         val resultMaxAgeHours: Long = 3,
     ) {
         val configured: Boolean get() = protectUrl.isNotBlank() && protectApiKey.isNotBlank() && cameraId.isNotBlank()
+    }
+
+    /**
+     * Jukebox interrupt test: with the Remote Falcon plugin's "Interrupt Schedule" on, a
+     * request must cut into Background at once, a second request must wait for the first,
+     * and Background must resume where it paused. Runs in a pass that asks for "Jukebox".
+     */
+    data class JukeboxTest(
+        /** Remote Falcon plugins API, e.g. https://plugins.rf.tronkowski.org. */
+        val pluginsUrl: String = "",
+        /** The show token the FPP plugin uses (header `remotetoken`). */
+        val showToken: String = "",
+        /** A short sequence in FPP's Remote playlist, hidden from viewers in Remote Falcon. */
+        val testSequence: String = "Althea Test",
+        val backgroundPlaylist: String = "Background",
+        val remotePlaylist: String = "Remote",
+        /** A request must take over within this many seconds (the plugin polls about every 2 s). */
+        val cutInSeconds: Int = 10,
+        /** Mute FPP during the test, so nothing plays on FM or the road speakers before the show. */
+        val mute: Boolean = true,
+        /** Longest a test request may play before the test gives up. */
+        val maxSongSeconds: Int = 60,
+        /** The daily result is reused by later passes for this many hours. */
+        val resultMaxAgeHours: Long = 3,
+        /** Scheduled runs start no later than this many minutes before show start (cleanup stops FPP). */
+        val latestStartMinutes: Long = 10,
+    ) {
+        val configured: Boolean get() = pluginsUrl.isNotBlank() && showToken.isNotBlank()
     }
 
     data class WebCheck(

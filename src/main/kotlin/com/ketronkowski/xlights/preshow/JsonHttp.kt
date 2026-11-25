@@ -47,6 +47,12 @@ class JsonHttp(
         return parseLenient(req.retrieve().body(String::class.java) ?: "")
     }
 
+    fun delete(url: String, headers: Map<String, String> = emptyMap()): JsonNode {
+        val req = restClient.delete().uri(url)
+        headers.forEach { (k, v) -> req.header(k, v) }
+        return parseLenient(req.retrieve().body(String::class.java) ?: "")
+    }
+
     /** JSON when the reply is JSON; plain-text replies (FPP commands answer "Started", "Stopped") as a text node. */
     internal fun parseLenient(text: String): JsonNode {
         val t = text.trim()
