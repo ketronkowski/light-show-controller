@@ -152,6 +152,11 @@ data class PreShowProperties(
         val dimRatio: Double = 0.5,
         /** Model names to leave out of the test. */
         val ignoreModels: List<String> = emptyList(),
+        /**
+         * Models that may hide behind other props (names, `*` wildcards, e.g. `PeaceStake-*`).
+         * One not seen is a note, not a failure; only their whole port going dark fails.
+         */
+        val softModels: List<String> = emptyList(),
         /** The light test never lights anything from this time until [quietEnd] on show nights. */
         val quietStart: java.time.LocalTime? = null,
         val quietEnd: java.time.LocalTime = java.time.LocalTime.of(22, 30),

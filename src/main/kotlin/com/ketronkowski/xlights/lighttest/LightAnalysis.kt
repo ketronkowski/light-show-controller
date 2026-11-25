@@ -72,7 +72,7 @@ object LightAnalysis {
         val results = cals.map { c ->
             val r = raw[c.name]
             if (!c.visible || r == null) {
-                ModelResult(c.name, c.controller, c.port, LightStatus.NOT_IN_VIEW)
+                ModelResult(c.name, c.controller, c.port, LightStatus.NOT_IN_VIEW, firstChannel = c.firstChannel)
             } else {
                 val level = r / levelScale
                 val area = signals.getValue(c.name).coverage / areaScale
@@ -81,7 +81,7 @@ object LightAnalysis {
                     level < cfg.dimRatio || area < 0.6 -> LightStatus.DIM
                     else -> LightStatus.ON
                 }
-                ModelResult(c.name, c.controller, c.port, status, round2(level), round2(area))
+                ModelResult(c.name, c.controller, c.port, status, round2(level), round2(area), c.firstChannel)
             }
         }
         return results to round2(typical)
