@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0d12" />
   <title>Pixel Boundary Finder</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -31,7 +31,8 @@
       <label class="m-check"><input type="checkbox" id="blink" checked /> Blink the marker</label>
       <label class="m-check"><input type="checkbox" id="focus" checked /> Light only what I'm measuring</label>
     </div>
-    <div class="m-row">
+    <!-- Phone: pinned above the tab bar, so Done (restore) is always in reach. -->
+    <div class="m-row m-runbar">
       <button id="startBtn" class="action" type="button">Light it up</button>
       <button id="stopBtn" class="action danger" type="button" disabled>Done (restore)</button>
     </div>
