@@ -8,6 +8,11 @@
   <link rel="manifest" href="manifest.json" crossorigin="use-credentials" />
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <!-- iPhone: Add to Home Screen opens full screen as "Light Show", with a black status bar over the dark app. -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Light Show" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <title>Light Show Controller</title>
   <style>body { background: #0a0d12; color: #e7ebf2; font-family: system-ui, sans-serif; } a { color: #ffb020; }</style>
   <!-- Opens the tab this device used last (nav.js remembers it), or Show Control the first time. -->
