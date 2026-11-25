@@ -1,0 +1,79 @@
+/* Tab bar (nav.js). Laptop: a row of tabs at the top of the page. Phone: a fixed bar at the bottom.
+   Colours fall back to the dark theme for pages that don't load style.css. */
+.tabbar {
+  --tab-bg: var(--bg-elevated, #12161d);
+  --tab-line: var(--border, rgba(255, 255, 255, 0.09));
+  --tab-text: var(--text-dim, #8890a0);
+  --tab-on: var(--accent, #ffb020);
+  --tab-hover: var(--text, #e7ebf2);
+  display: flex;
+  gap: 0.25rem;
+  font-family: var(--font-display, "Chakra Petch", "Segoe UI", sans-serif);
+  border-bottom: 1px solid var(--tab-line);
+  margin-bottom: 0.25rem;
+}
+.tabbar .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.75rem 0.9rem 0.6rem;
+  color: var(--tab-text);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  -webkit-tap-highlight-color: transparent;
+}
+.tabbar .tab:hover { color: var(--tab-hover); }
+.tabbar .tab.active { color: var(--tab-on); border-bottom-color: var(--tab-on); }
+.tabbar .tab-icon {
+  width: 18px; height: 18px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.tabbar .tab-short { display: none; }
+
+@media (max-width: 760px), (max-height: 500px) {
+  .tabbar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 30;
+    gap: 0;
+    margin: 0;
+    padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    background: var(--tab-bg);
+    border-bottom: 0;
+    border-top: 1px solid var(--tab-line);
+    box-shadow: 0 -12px 30px -18px rgba(0, 0, 0, 0.9);
+  }
+  .tabbar .tab {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.2rem;
+    min-height: 56px;
+    padding: 0.4rem 0.2rem;
+    font-size: 0.7rem;
+    border-bottom: 0;
+    margin: 0;
+  }
+  .tabbar .tab.active { border-top: 2px solid var(--tab-on); padding-top: calc(0.4rem - 2px); }
+  .tabbar .tab-icon { width: 22px; height: 22px; }
+  .tabbar .tab-long { display: none; }
+  .tabbar .tab-short { display: inline; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+  /* Keep the end of every page clear of the bar. */
+  body.has-tabbar:not(.has-sel-bar) { padding-bottom: calc(56px + 1.5rem + env(safe-area-inset-bottom, 0px)); }
+
+  /* Controllers: while something is selected, the selection bar takes the tab bar's place. */
+  body.has-sel-bar .tabbar { display: none; }
+}
+
+/* Landscape phone: short screen, so the bar is a single row of icon + label. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .tabbar .tab { flex-direction: row; gap: 0.4rem; min-height: 44px; font-size: 0.78rem; }
+  .tabbar .tab-icon { width: 20px; height: 20px; }
+  body.has-tabbar:not(.has-sel-bar) { padding-bottom: calc(44px + 1rem + env(safe-area-inset-bottom, 0px)); }
+}

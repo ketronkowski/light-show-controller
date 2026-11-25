@@ -3,7 +3,6 @@ body.measure { padding: 0 16px 3rem; max-width: 640px; margin: 0 auto; }
 
 .m-top { display: flex; align-items: baseline; gap: 1rem; padding: 1rem 0 0.5rem; }
 .m-top h1 { font-size: 1.3rem; margin: 0; }
-.m-back { color: var(--text-dim); text-decoration: none; font-size: 0.9rem; }
 
 .m-panel {
   background: var(--bg-elevated);
