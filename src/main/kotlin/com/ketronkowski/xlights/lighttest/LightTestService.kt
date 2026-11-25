@@ -53,6 +53,8 @@ class LightTestService(
     private val lastRunImage = root.resolve("last-run.jpg")
     /** Present while FPP is in test mode, so a restart can switch it off. */
     private val activeMarker = root.resolve("active-fpp-host")
+    /** A picture of each model lit on its own, from the latest calibration and test. */
+    val photos = ModelPhotos(root)
     private val xlightsDir: Path = Path.of(dataDir, "xlights")
     private val cfg get() = props.lights
     private val zone get() = ZoneId.of(props.zone)
@@ -162,14 +164,20 @@ class LightTestService(
         val candidates = mutableListOf<LightAnalysis.Candidate>()
         var size = 0 to 0
         var noise: BooleanArray? = null
-        val composite = sweep(host, targets, "calibration",
-            onDarks = { a, b ->
-                val n = noise ?: BooleanArray(a.lum.size).also { noise = it }
-                LightMath.noise(a, b, cfg.maskThreshold.toFloat(), n)
-            },
-        ) { t, lit, base ->
-            size = lit.width to lit.height
-            candidates += LightAnalysis.candidate(t, lit, base, cfg)
+        val staging = photos.begin("calibration")
+        val composite = try {
+            sweep(host, targets, "calibration", staging,
+                onDarks = { a, b ->
+                    val n = noise ?: BooleanArray(a.lum.size).also { noise = it }
+                    LightMath.noise(a, b, cfg.maskThreshold.toFloat(), n)
+                },
+            ) { t, lit, base ->
+                size = lit.width to lit.height
+                candidates += LightAnalysis.candidate(t, lit, base, cfg)
+            }
+        } catch (e: Throwable) {
+            photos.discard("calibration")
+            throw e
         }
         if (previous != null) {
             check(previous.width == size.first && previous.height == size.second) {
@@ -186,6 +194,7 @@ class LightTestService(
         Files.createDirectories(root)
         Files.writeString(calFile, objectMapper.writeValueAsString(cal))
         composite?.let { Files.write(calImage, LightAnalysis.annotate(LightAnalysis.toImage(it, size.first, size.second), cals, null, size.first)) }
+        photos.commit("calibration", merge = previous != null)
         log.info("Light calibration saved ({}): {} of {} models visible", if (previous != null) "missing models only" else "full", cal.visible.size, cal.models.size)
         return cal
     }
@@ -224,8 +233,14 @@ class LightTestService(
             val toTest = cal.visible.mapNotNull { c -> byName[c.name]?.let { c to it } }
             val signals = mutableMapOf<String, Signal>()
             val calByName = toTest.associate { it.second.name to it.first }
-            val composite = sweep(host, toTest.map { it.second }, "test") { t, lit, base ->
-                signals[t.name] = LightAnalysis.measure(calByName.getValue(t.name), lit, base, cfg)
+            val staging = photos.begin("test")
+            val composite = try {
+                sweep(host, toTest.map { it.second }, "test", staging) { t, lit, base ->
+                    signals[t.name] = LightAnalysis.measure(calByName.getValue(t.name), lit, base, cfg)
+                }
+            } catch (e: Throwable) {
+                photos.discard("test")
+                throw e
             }
             // Models that vanished from the layout are reported as not in view rather than guessed at.
             val (results, typical) = LightAnalysis.classify(cal.models, signals, cfg)
@@ -234,6 +249,7 @@ class LightTestService(
                 LightAnalysis.annotate(LightAnalysis.toImage(it, cal.width, cal.height), cal.models,
                     results.associate { r -> r.name to r.status }, cal.width)
             })
+            photos.commit("test")
             progress = LightTestStatus(busy = false, job = "test", done = toTest.size, total = toTest.size,
                 message = "tested ${toTest.size} models: ${results.count { it.status == LightStatus.OFF }} off, ${results.count { it.status == LightStatus.DIM }} dim")
             return run
@@ -298,6 +314,7 @@ class LightTestService(
         host: String,
         targets: List<ModelTarget>,
         job: String,
+        photoDir: Path? = null,
         onDarks: (Frame, Frame) -> Unit = { _, _ -> },
         onModel: (ModelTarget, Frame, Frame) -> Unit,
     ): IntArray? {
@@ -326,6 +343,7 @@ class LightTestService(
                 lighter.light(host, t.firstChannel, t.lastChannel, cfg.color)
                 Thread.sleep(if (i == 0) cfg.settleMs * 2 else cfg.settleMs)
                 val lit = shot()
+                photoDir?.let { photos.save(it, t.name, lit) }
                 composite = composite ?: IntArray(lit.width * lit.height)
                 lit.rgb?.let { LightAnalysis.maxInto(composite!!, it) }
                 block += t to Frame(lit.width, lit.height, lit.lum)

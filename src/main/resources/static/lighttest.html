@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0d12" />
+  <title>Latest light test</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="show.css" />
+  <style>
+    .lt-section { margin-top: 1rem; }
+    .lt-when { font-family: var(--font-mono); color: var(--text); font-size: 1rem; margin: 0 0 0.35rem; }
+    .lt-sum { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0 0.8rem; }
+    .lt-chip {
+      border: 1px solid var(--border); border-radius: 999px; padding: 0.35rem 0.75rem; min-height: 36px;
+      background: transparent; color: var(--text-dim); font: inherit; font-size: 0.85rem; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 0.35rem;
+    }
+    .lt-chip[aria-pressed="true"] { border-color: var(--accent); color: var(--text); background: var(--bg); }
+    .lt-chip b { font-family: var(--font-mono); }
+    .lt-overview { width: 100%; max-height: 55vh; object-fit: contain; background: #000; border-radius: var(--radius); border: 1px solid var(--border); display: block; }
+    .lt-overview-link { display: block; margin-bottom: 0.9rem; }
+    .lt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 0.75rem; }
+    .lt-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; min-width: 0; }
+    .lt-card.fail { border-color: var(--err); }
+    .lt-card.note { border-color: var(--warn); }
+    .lt-photo { position: relative; display: block; aspect-ratio: 16 / 9; background: #000; }
+    .lt-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .lt-photo .box { position: absolute; border: 2px solid var(--ok); border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,.6); pointer-events: none; }
+    .lt-card.fail .box { border-color: var(--err); }
+    .lt-card.note .box { border-color: var(--warn); }
+    .lt-nophoto { display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 9; color: var(--text-faint); font-size: 0.8rem; text-align: center; padding: 0 1rem; }
+    .lt-cap { padding: 0.5rem 0.65rem 0.6rem; display: flex; gap: 0.5rem; align-items: flex-start; }
+    .lt-cap .n { font-weight: 600; font-size: 0.9rem; overflow-wrap: anywhere; }
+    .lt-cap .w { color: var(--text-faint); font-size: 0.75rem; font-family: var(--font-mono); }
+    .lt-cap .s { margin-left: auto; flex: none; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 0.15rem 0.45rem; border-radius: 4px; }
+    .s.ok { color: var(--ok); border: 1px solid var(--ok); }
+    .s.fail { color: var(--err); border: 1px solid var(--err); }
+    .s.note { color: var(--warn); border: 1px solid var(--warn); }
+    .s.off { color: var(--text-faint); border: 1px solid var(--border); }
+    .lt-more { margin-top: 0.8rem; }
+  </style>
+</head>
+<body class="show-page">
+  <header class="sc-top">
+    <a href="preshow.html" class="sc-back" aria-label="Back to the pre-show check">&larr;</a>
+    <h1>Latest light test</h1>
+  </header>
+
+  <main>
+    <section class="sc-card lt-section" aria-labelledby="testTitle">
+      <h2 id="testTitle">Latest test</h2>
+      <div id="testBody"><p class="sc-dim">Loading…</p></div>
+    </section>
+    <section class="sc-card lt-section" aria-labelledby="calTitle">
+      <h2 id="calTitle">Calibration</h2>
+      <div id="calBody"><p class="sc-dim">Loading…</p></div>
+    </section>
+  </main>
+
+  <script>
+  'use strict';
+  const $ = id => document.getElementById(id);
+  function el(tag, attrs = {}, ...kids) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v == null || v === false) continue;
+      if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v; else e.setAttribute(k, v);
+    }
+    for (const k of kids.flat()) if (k != null) e.append(k.nodeType ? k : document.createTextNode(String(k)));
+    return e;
+  }
+  const when = iso => new Date(iso).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const stamp = Date.now();
+
+  // One model: its own picture (lit on its own), boxed where calibration found it.
+  function card(job, m, kind, label) {
+    let pic;
+    if (m.photo) {
+      const src = `api/lighttest/photo?job=${job}&model=${encodeURIComponent(m.name)}&t=${stamp}`;
+      pic = el('a', { class: 'lt-photo', href: src, target: '_blank', title: 'Open full size' },
+        el('img', { src, alt: `${m.name} lit on its own`, loading: 'lazy' }));
+      if (m.box) {
+        const [x0, y0, x1, y1] = m.box, b = el('span', { class: 'box' });
+        Object.assign(b.style, { left: `${x0 * 100}%`, top: `${y0 * 100}%`, width: `${(x1 - x0) * 100}%`, height: `${(y1 - y0) * 100}%` });
+        pic.append(b);
+      }
+    } else {
+      pic = el('div', { class: 'lt-nophoto', text: m.noPhoto || 'No picture: taken from the next run on' });
+    }
+    return el('div', { class: `lt-card ${kind}` }, pic,
+      el('div', { class: 'lt-cap' }, el('div', {}, el('div', { class: 'n', text: m.name }), el('div', { class: 'w', text: m.where })),
+        el('span', { class: `s ${kind}`, text: label })));
+  }
+
+  // Filter chips over a grid; the first non-empty group is shown first.
+  function grouped(body, job, groups, overview) {
+    const grid = el('div', { class: 'lt-grid' });
+    const chips = el('div', { class: 'lt-sum', role: 'group', 'aria-label': 'Show' });
+    const all = groups.flatMap(g => g.items.map(m => ({ m, g })));
+    let current = groups.find(g => g.items.length && g.first)?.key || 'all';
+    function render() {
+      for (const c of chips.children) c.setAttribute('aria-pressed', String(c.dataset.key === current));
+      const shown = current === 'all' ? all : all.filter(x => x.g.key === current);
+      grid.replaceChildren(...shown.map(x => card(job, x.m, x.g.kind, x.g.label)));
+      if (!shown.length) grid.append(el('p', { class: 'sc-dim', text: 'None.' }));
+    }
+    const chip = (key, text, n) => {
+      const b = el('button', { class: 'lt-chip', type: 'button' }, text, el('b', { text: n }));
+      b.dataset.key = key; b.onclick = () => { current = key; render(); };
+      return b;
+    };
+    for (const g of groups) if (g.items.length) chips.append(chip(g.key, g.title, g.items.length));
+    chips.append(chip('all', 'All', all.length));
+    body.append(chips);
+    if (overview) body.append(el('a', { class: 'lt-overview-link', href: overview, target: '_blank', title: 'Every model lit at once' },
+      el('img', { class: 'lt-overview', src: overview, alt: 'Every model lit at once, boxed' })));
+    body.append(grid);
+    render();
+  }
+
+  function renderTest(t) {
+    const body = $('testBody');
+    body.replaceChildren();
+    if (!t) { body.append(el('p', { class: 'sc-dim', text: 'No light test yet. Run one from the pre-show page.' })); return; }
+    body.append(el('p', { class: 'lt-when', text: when(t.startedAt) }));
+    if (t.skippedBecause) { body.append(el('p', { class: 'sc-err', text: `Didn't run: ${t.skippedBecause}` })); return; }
+    const by = s => t.results.filter(s);
+    const failed = by(m => m.status === 'OFF' && !m.soft);
+    const hidden = by(m => m.status === 'OFF' && m.soft);
+    const lit = by(m => m.status === 'ON' || m.status === 'DIM');
+    const away = by(m => m.status === 'NOT_IN_VIEW').map(m => ({ ...m, noPhoto: 'Not in the camera’s view, so not tested' }));
+    const parts = [`${lit.length} of ${lit.length + failed.length + hidden.length} lit`];
+    if (failed.length) parts.push(`${failed.length} failed`);
+    if (t.calibratedAt) parts.push(`against the ${when(t.calibratedAt)} calibration`);
+    body.append(el('p', { class: 'sc-dim', text: parts.join(' · ') }));
+    grouped(body, 'test', [
+      { key: 'fail', title: 'Failed', label: 'failed', kind: 'fail', items: failed, first: true },
+      { key: 'hidden', title: 'Not seen (may be hidden)', label: 'not seen', kind: 'note', items: hidden, first: true },
+      { key: 'ok', title: 'Lit', label: 'lit', kind: 'ok', items: lit },
+      { key: 'away', title: 'Not in view', label: 'not in view', kind: 'off', items: away },
+    ], t.image ? `api/lighttest/last.jpg?t=${stamp}` : null);
+  }
+
+  function renderCal(c) {
+    const body = $('calBody');
+    body.replaceChildren();
+    if (!c) { body.append(el('p', { class: 'sc-dim', text: 'Not calibrated yet.' })); return; }
+    body.append(el('p', { class: 'lt-when', text: when(c.createdAt) }));
+    const seen = c.models.filter(m => m.visible), unseen = c.models.filter(m => !m.visible);
+    const skipped = Object.entries(c.skipped || {}).map(([name, why]) => ({ name, where: why, photo: false, noPhoto: 'Could not be lit' }));
+    body.append(el('p', { class: 'sc-dim', text: `${seen.length} of ${c.models.length} models in the camera’s view` }));
+    grouped(body, 'calibration', [
+      { key: 'unseen', title: 'Not in view', label: 'not in view', kind: 'note', items: unseen },
+      { key: 'seen', title: 'In view', label: 'in view', kind: 'ok', items: seen, first: true },
+      { key: 'skipped', title: 'Not lit', label: 'not lit', kind: 'off', items: skipped },
+    ], `api/lighttest/calibration.jpg?t=${stamp}`);
+  }
+
+  (async () => {
+    try {
+      const res = await fetch('api/lighttest/latest');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      renderTest(d.test);
+      renderCal(d.calibration);
+    } catch (e) {
+      $('testBody').replaceChildren(el('p', { class: 'sc-err', text: `Couldn't load the light test: ${e.message}` }));
+      $('calBody').replaceChildren();
+    }
+  })();
+  </script>
+</body>
+</html>

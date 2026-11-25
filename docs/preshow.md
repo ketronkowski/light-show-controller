@@ -258,6 +258,10 @@ always switched off at the end (also after a crash or restart mid-test).
    cleanly split 143 visible props from 11 with no pixels at all (the Mailbox, the upper eaves
    and verticals hidden by the roofline, and one peace stake). The calibration picture
    (`/api/lighttest/calibration.jpg`) boxes every model it found. Re-calibrate if the camera moves.
+   The **Latest light test** button on the pre-show page opens `lighttest.html`: the date and time
+   of the latest test and calibration, and the camera's picture of each model lit on its own
+   (failed models first, boxed where calibration found them). Pictures are kept for the latest
+   calibration and the latest test only, under `<data-dir>/lighttest/photos/`.
 2. **The camera pass** lights every model in view again and grades it against calibration,
    scaled to the night's typical model so dusk light or camera exposure doesn't count as a fault:
    The question is "does it light": a model lit or it didn't.

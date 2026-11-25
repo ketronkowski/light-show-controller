@@ -4,6 +4,10 @@ import com.ketronkowski.xlights.lighttest.LightRun
 import com.ketronkowski.xlights.lighttest.LightTestBusyException
 import com.ketronkowski.xlights.lighttest.LightTestService
 import com.ketronkowski.xlights.lighttest.LightTestStatus
+import com.ketronkowski.xlights.lighttest.LightStatus
+import com.ketronkowski.xlights.lighttest.LightTestChecker
+import com.ketronkowski.xlights.lighttest.ModelPhotos
+import com.ketronkowski.xlights.preshow.PreShowProperties
 import com.ketronkowski.xlights.preshow.NotifyPolicy
 import com.ketronkowski.xlights.preshow.PreShowBusyException
 import com.ketronkowski.xlights.preshow.PreShowService
@@ -23,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController
 class LightTestController(
     private val lights: LightTestService,
     private val preshow: PreShowService,
+    private val props: PreShowProperties,
 ) {
     private val log = LoggerFactory.getLogger(LightTestController::class.java)
 
@@ -86,4 +91,60 @@ class LightTestController(
 
     @GetMapping("/last")
     fun last(): ResponseEntity<LightRun> = lights.lastRun()?.let { ResponseEntity.ok(it) } ?: ResponseEntity.notFound().build()
+
+    @GetMapping("/last.jpg", produces = [MediaType.IMAGE_JPEG_VALUE])
+    fun lastImage(): ResponseEntity<ByteArray> =
+        lights.lastRunImage()?.let { ResponseEntity.ok(it) } ?: ResponseEntity.notFound().build()
+
+    /** What the camera saw while [model] alone was lit, in the latest calibration or test. */
+    @GetMapping("/photo", produces = [MediaType.IMAGE_JPEG_VALUE])
+    fun photo(@RequestParam job: String, @RequestParam model: String): ResponseEntity<ByteArray> {
+        if (job !in ModelPhotos.JOBS) return ResponseEntity.badRequest().build()
+        return lights.photos.get(job, model)?.let { ResponseEntity.ok(it) } ?: ResponseEntity.notFound().build()
+    }
+
+    /**
+     * The latest test and calibration, model by model, for the Latest light test page:
+     * each model's status, whether it has a picture, and where calibration found it in
+     * the picture (x0, y0, x1, y1 as fractions, so the page can box it at any size).
+     */
+    @GetMapping("/latest")
+    fun latest(): Map<String, Any?> {
+        val cal = lights.calibration()
+        val boxes = cal?.models?.filter { it.visible }?.associate { m ->
+            val b = m.mask.bounds(cal.width)
+            m.name to if (b[2] < 0) null else listOf(
+                b[0].toDouble() / cal.width, b[1].toDouble() / cal.height,
+                (b[2] + 1).toDouble() / cal.width, (b[3] + 1).toDouble() / cal.height)
+        } ?: emptyMap()
+        val soft = props.lights.softModels.map { LightTestChecker.globRegex(it) }
+        fun isSoft(name: String) = soft.any { it.matches(name) }
+        val run = lights.lastRun()
+        return mapOf(
+            "calibration" to cal?.let { c ->
+                mapOf(
+                    "createdAt" to c.createdAt,
+                    "models" to c.models.map { m ->
+                        mapOf("name" to m.name, "where" to m.where, "visible" to m.visible, "soft" to isSoft(m.name),
+                            "box" to boxes[m.name], "photo" to lights.photos.has("calibration", m.name))
+                    },
+                    "skipped" to c.skipped,
+                )
+            },
+            "test" to run?.let { r ->
+                mapOf(
+                    "startedAt" to r.startedAt,
+                    "finishedAt" to r.finishedAt,
+                    "skippedBecause" to r.skippedBecause,
+                    "calibratedAt" to r.calibratedAt,
+                    "image" to (lights.lastRunImage() != null),
+                    "results" to r.results.map { m ->
+                        mapOf("name" to m.name, "where" to m.where, "status" to m.status, "level" to m.level,
+                            "soft" to isSoft(m.name), "box" to boxes[m.name],
+                            "photo" to (m.status != LightStatus.NOT_IN_VIEW && lights.photos.has("test", m.name)))
+                    },
+                )
+            },
+        )
+    }
 }
