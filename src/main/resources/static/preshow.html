@@ -44,6 +44,11 @@
       <p id="ltMsg" class="ps-msg" aria-live="polite"></p>
     </section>
 
+    <section id="lipsync" class="sc-card ps-lights" aria-labelledby="lsTitle" hidden>
+      <h2 id="lsTitle">Stream lip sync</h2>
+      <p id="lsMsg" class="ps-msg" aria-live="polite"></p>
+    </section>
+
     <section class="sc-card ps-runs-card" aria-labelledby="runsTitle">
       <h2 id="runsTitle">Runs</h2>
       <ul id="runs" class="ps-runs"></ul>
@@ -189,8 +194,20 @@
     lt.miss.onclick = () => { if (confirm('Relight only the models the camera could not see last time (after a repair), and add them to the calibration? Takes under a minute. Do this after dark.')) ltPost('calibrate?missing=true'); };
     lt.stop.onclick = () => ltPost('stop');
 
+    async function lsStatus() {
+      const res = await fetch('api/lipsync/last');
+      if (!res.ok) return;
+      const v = await res.json();
+      const r = v.result;
+      const when = new Date(r.measuredAt || r.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      const mark = v.outcome === 'PASS' ? 'OK' : 'Check';
+      document.getElementById('lsMsg').textContent = `${when}: ${mark}, ${v.message}.`;
+      document.getElementById('lipsync').hidden = false;
+    }
+
     load();
     ltStatus();
+    lsStatus();
   </script>
   <script src="version.js"></script>
 </body>
