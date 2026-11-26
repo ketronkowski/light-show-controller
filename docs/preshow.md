@@ -84,6 +84,8 @@ preshow:
       Presents: switch.presents_plug
     switches:                                    # on/off buttons on the Show Control page
       "[Road speakers]": switch.front_yard_light_show_fm_speakers
+    stream-viewers-entity: sensor.live_stream_viewers   # Show Control "Live stream" card (live-01 /status)
+    stream-upload-entity: sensor.live_stream_upload     # Mbit/s; the card also uses feed-source / stream-audio
     enabled-entity: input_boolean.preshow_enabled
     report-url: https://light-show.example.net
   web:
@@ -138,7 +140,11 @@ Limit the automation to show nights with an extra condition (a date range or a
 
 The live stream box (live-01) serves `GET http://192.168.4.10:9998/status`:
 `{"phone_ready": bool, "show_ready": bool, "feed_source": "phone"|"slate"|"none",
-"audio_device": bool, "audio_ok": bool, "audio_peak_db": float|null, "last_audio_at": "..."|null, "updated": "..."}`.
+"audio_device": bool, "audio_ok": bool, "audio_peak_db": float|null, "last_audio_at": "..."|null,
+"viewers": int|null, "upload_mbps": float|null, "updated": "..."}`. `viewers` counts WebRTC viewers of path `show`;
+`upload_mbps` is live-01's upload over the last 10 s. The Show Control page's Live stream card reads the
+viewer and upload sensors (`preshow.ha.stream-viewers-entity`, `preshow.ha.stream-upload-entity`) plus the feed
+source and audio entities, all from Home Assistant: the app never polls live-01 itself.
 `audio_ok` is true when the ClearClick USB adapter is present, the show path has an audio track and
 the feeder's audio input is alive. Home Assistant polls it, the pre-show check reads the HA entities
 (`preshow.ha.phone-feed-entity`, `preshow.ha.feed-source-entity`, `preshow.ha.stream-audio-entity`,
@@ -166,6 +172,16 @@ rest:
       - name: Live feed source
         unique_id: live_feed_source
         value_template: "{{ value_json.feed_source }}"
+      - name: Live stream viewers
+        unique_id: live_stream_viewers
+        value_template: "{{ value_json.viewers }}"
+        state_class: measurement
+      - name: Live stream upload
+        unique_id: live_stream_upload
+        value_template: "{{ value_json.upload_mbps }}"
+        unit_of_measurement: "Mbit/s"
+        device_class: data_rate
+        state_class: measurement
       - name: Live stream audio peak
         unique_id: live_stream_audio_peak
         value_template: "{{ value_json.audio_peak_db }}"
