@@ -282,6 +282,14 @@ always switched off at the end (also after a crash or restart mid-test).
 3. **Later passes** (final, last look) repeat the camera result for `result-max-age-hours`, so the
    4:50 PM GO / NO-GO includes it without lighting anything again.
 
+**Board power.** FPP's schedule switches the show boards off overnight (WLED off also cuts each
+board's pixel power supply), so a test or calibration in the morning or late at night would see
+nothing. Before lighting, the test reads each board's on/off state, switches the ones that are off
+on (preset 1, Black), and waits `power-on-wait-ms` (5 s) for the supplies to come up. At the end
+(also after a failure, a Stop, or a restart mid-test) it switches those boards back off, except
+between `boards-on-from` and `boards-on-until` (16:00-22:15, FPP's board-power hours), when it
+leaves them on so it never undoes the schedule. Boards that were already on are never touched.
+
 Guards: it never lights while FPP is playing. Scheduled runs also never light on show nights
 between `quiet-start` (default: show start) and `quiet-end` (22:30); a calibration or test
 started by hand from the page runs any time FPP is idle (you stopped the show on purpose).
