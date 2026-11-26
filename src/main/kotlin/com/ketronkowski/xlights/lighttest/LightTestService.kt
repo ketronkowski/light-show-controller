@@ -53,6 +53,16 @@ class LightTestService(
     private val lastRunImage = root.resolve("last-run.jpg")
     /** Present while FPP is in test mode, so a restart can switch it off. */
     private val activeMarker = root.resolve("active-fpp-host")
+    /** Boards the test switched on, so a restart mid-test can switch them off again. */
+    private val poweredMarker = root.resolve("powered-on-boards")
+    private val power = BoardPower(
+        object : BoardSwitch {
+            override fun isOn(ip: String) = wled.fetchState(ip).on
+            override fun turnOn(ip: String) = wled.postState(ip, mapOf("on" to true, "ps" to 1))
+            override fun turnOff(ip: String) = wled.postState(ip, mapOf("on" to false))
+        },
+        sleep = { Thread.sleep(it) },
+    )
     /** A picture of each model lit on its own, from the latest calibration and test. */
     val photos = ModelPhotos(root)
     private val xlightsDir: Path = Path.of(dataDir, "xlights")
@@ -100,6 +110,21 @@ class LightTestService(
         log.warn("Light test was interrupted by a restart; stopping FPP test mode on {}", host)
         if (host.isNotBlank()) runCatching { lighter.stop(host) }.onFailure { log.warn("Could not stop FPP test mode: {}", it.brief()) }
         runCatching { Files.deleteIfExists(activeMarker) }
+        restorePower()
+    }
+
+    /** Switches off the boards the test switched on, unless FPP's schedule wants them on now. */
+    private fun restorePower(boards: List<String>? = null) {
+        val ips = boards ?: (if (poweredMarker.exists()) runCatching { poweredMarker.readText().lines().filter { it.isNotBlank() } }.getOrDefault(emptyList()) else emptyList())
+        if (ips.isNotEmpty()) {
+            val t = Instant.now().atZone(zone).toLocalTime()
+            if (!t.isBefore(cfg.boardsOnFrom) && t.isBefore(cfg.boardsOnUntil)) {
+                log.info("Leaving {} board(s) on: it's inside FPP's board-power hours ({}-{})", ips.size, cfg.boardsOnFrom, cfg.boardsOnUntil)
+            } else {
+                power.restore(ips).forEach { (ip, e) -> log.error("Could not switch board {} back off: {}", ip, e) }
+            }
+        }
+        runCatching { Files.deleteIfExists(poweredMarker) }
     }
 
     // ── Guards ─────────────────────────────────────────────────────────────
@@ -299,7 +324,7 @@ class LightTestService(
             for (m in models) {
                 val pixel = (m.startChannel - 1) / bpp
                 val port = busses.indexOfFirst { pixel >= it.start && pixel < it.start + it.len }.takeIf { it >= 0 }?.plus(1)
-                targets += ModelTarget(m.name, c.name, start + m.startChannel - 1, start + m.startChannel - 1 + m.channelCount - 1, port)
+                targets += ModelTarget(m.name, c.name, start + m.startChannel - 1, start + m.startChannel - 1 + m.channelCount - 1, port, c.ipAddress)
             }
         }
         return targets to skipped
@@ -321,7 +346,16 @@ class LightTestService(
         Files.createDirectories(root)
         Files.writeString(activeMarker, host)
         var composite: IntArray? = null
+        var switchedOn: List<String> = emptyList()
         try {
+            // Boards switched off by the schedule (overnight, mornings) can't light: switch them on
+            // first, and back off at the end, whatever happens.
+            val boards = targets.mapNotNull { it.boardIp }.distinct()
+            progress = progress.copy(job = job, message = "checking board power")
+            val up = power.powerUp(boards, cfg.powerOnWaitMs) { switchedOn = it; Files.writeString(poweredMarker, it.joinToString("\n")) }
+            switchedOn = up.switchedOn
+            if (up.switchedOn.isNotEmpty()) log.info("Switched on {} board(s) for the {}: {}", up.switchedOn.size, job, up.switchedOn)
+            up.errors.forEach { (ip, e) -> log.warn("Board {} power: {}", ip, e) }
             fun shot(): Frame {
                 val f = Frame.decode(camera.snapshot(), cfg.analysisWidth, keepRgb = true)
                 return f
@@ -358,6 +392,7 @@ class LightTestService(
             }
         } finally {
             runCatching { lighter.stop(host) }.onFailure { log.error("Could not stop FPP test mode on {}: {}", host, it.brief()) }
+            runCatching { restorePower(switchedOn) }.onFailure { log.error("Could not restore board power: {}", it.brief()) }
             runCatching { Files.deleteIfExists(activeMarker) }
         }
         return composite

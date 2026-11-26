@@ -169,6 +169,14 @@ data class PreShowProperties(
         val quietEnd: java.time.LocalTime = java.time.LocalTime.of(22, 30),
         /** The daily result is reused by later passes for this many hours. */
         val resultMaxAgeHours: Long = 3,
+        /** After switching boards on (their power supplies come up with them), wait this long before lighting. */
+        val powerOnWaitMs: Long = 5000,
+        /**
+         * FPP's schedule keeps the boards on from [boardsOnFrom] to [boardsOnUntil]. Inside that window
+         * a board the test switched on is left on afterwards, so the test never undoes the schedule.
+         */
+        val boardsOnFrom: java.time.LocalTime = java.time.LocalTime.of(16, 0),
+        val boardsOnUntil: java.time.LocalTime = java.time.LocalTime.of(22, 15),
     ) {
         val configured: Boolean get() = protectUrl.isNotBlank() && protectApiKey.isNotBlank() && cameraId.isNotBlank()
     }

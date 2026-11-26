@@ -12,6 +12,8 @@ data class ModelTarget(
     val lastChannel: Int,
     /** 1-based output on the board, when the board's outputs could be read. */
     val port: Int? = null,
+    /** The board's address, so the test can switch it on if it's off. */
+    val boardIp: String? = null,
 ) {
     @get:com.fasterxml.jackson.annotation.JsonIgnore
     val where: String get() = if (port != null) "$controller port $port" else controller
