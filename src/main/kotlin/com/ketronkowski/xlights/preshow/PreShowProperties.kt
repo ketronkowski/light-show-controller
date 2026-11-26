@@ -36,6 +36,7 @@ data class PreShowProperties(
     val email: Email = Email(),
     val lights: LightTest = LightTest(),
     val jukebox: JukeboxTest = JukeboxTest(),
+    val lipSync: LipSync = LipSync(),
     /** Run files older than this many days are deleted. */
     val keepDays: Long = 60,
 ) {
@@ -199,6 +200,16 @@ data class PreShowProperties(
     ) {
         val configured: Boolean get() = pluginsUrl.isNotBlank() && showToken.isNotBlank()
     }
+
+    /** Stream lip sync, measured outside the app (click track on FPP, recording of the stream) and posted here. */
+    data class LipSync(
+        /** Audio minus video beyond this many ms (either way) is a warning. */
+        val warnMs: Double = 100.0,
+        /** Fewer clicks paired than this and the measurement is a warning (not trustworthy). */
+        val minPairs: Int = 4,
+        /** The posted result counts in passes for this many hours. */
+        val resultMaxAgeHours: Long = 3,
+    )
 
     data class WebCheck(
         val name: String,

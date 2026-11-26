@@ -342,3 +342,23 @@ preshow:
     show-token: ${RF_SHOW_TOKEN}
     test-sequence: Althea Test
 ```
+
+## Stream lip sync (Stream layer)
+
+Lip sync is measured outside the app: FPP plays the 20 s "Click Track Short" sequence (the whole
+show flashes with a click, 8 times), a recording of the stream is analyzed for audio minus video at
+each click, and the measurer posts the result:
+
+```
+POST /api/lipsync/result
+{"offsetMs": 53, "spreadMs": 2, "pairs": 7, "measuredAt": "2026-11-26T21:48:00Z", "feederRestarted": false, "note": "optional"}
+```
+
+`offsetMs` is video minus audio: positive = the picture is late. The `--json` output of
+`clicksync.py` (`offset_ms`, `pairs`, `p10_ms`, `p90_ms`) is accepted as is, and the spread is then
+p90 - p10. `measuredAt` defaults to when it was posted. Every later pass for
+`preshow.lip-sync.result-max-age-hours` (3) reports it as **Stream / Lip sync**: OK within `warn-ms`
+(100 ms either way), a warning beyond that or with fewer than `min-pairs` (4) clicks matched.
+Never a blocker. The Pre-show page shows the latest result (`GET /api/lipsync/last`). Until a first
+result is posted the layer reports nothing. The measurement plays audio, so it runs after the muted
+4:43 PM jukebox pass (about 4:48) and before the 4:50 final pass, which then includes it.
