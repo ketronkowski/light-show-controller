@@ -208,7 +208,22 @@ async function flipSwitch(label, on) {
   }
 }
 
-function renderBoards(boards) {
+// One board's light: green when WLED is on (or taking FPP data), amber when it answers but WLED is off,
+// red when it doesn't answer. A red board whose plug or the show circuit reads off says so: no 120 V.
+function boardLook(b, power) {
+  if (!b.reachable) {
+    const circuitOff = power?.circuit?.state === 'off';
+    const plugOff = b.plug && (power?.plugs || []).some(pl => pl.label === b.plug && pl.state === 'off');
+    const why = circuitOff ? 'show circuit is off' : plugOff ? `plug ${b.plug} is off` : (b.error || 'not answering');
+    return { kind: 'err', title: 'Not answering', note: why };
+  }
+  const note = b.plug ? `plug: ${b.plug}` : b.ip;
+  if (b.live || b.on === true) return { kind: 'ok', title: b.live ? 'On, taking show data' : 'On', note };
+  if (b.on === false) return { kind: 'warn', title: 'Answering, WLED is off', note: `off · ${note}` };
+  return { kind: '', title: 'Answering', note };
+}
+
+function renderBoards(boards, power) {
   const body = $('boardsBody');
   if (!boards.length) { body.replaceChildren(el('p', { class: 'sc-dim', text: 'No WLED boards: upload the xLights show folder on the main page.' })); return; }
   const up = boards.filter(b => b.reachable).length, live = boards.filter(b => b.live).length;
@@ -218,11 +233,18 @@ function renderBoards(boards) {
   const est = metered.length ? ` · ${(totalMa / 1000).toFixed(1)} A estimated on ${metered.length}` : '';
   body.replaceChildren(
     el('p', { class: 'sc-dim', text: `${up} of ${boards.length} answering · ${live} live${est}` }),
-    el('ul', { class: 'sc-rows' }, boards.map(b => el('li', {},
-      led(!b.reachable ? 'err' : b.live ? 'ok' : ''),
-      el('span', { class: 'sc-name' }, b.name, el('span', { class: 'sc-note', text: b.reachable ? (b.plug ? `plug: ${b.plug}` : b.ip) : (b.error || 'not answering') })),
-      b.live ? el('span', { class: 'sc-pill live', text: 'live' }) : null,
-      el('span', { class: 'sc-right', text: b.reachable && b.metered ? `${b.milliamps} mA` : '' })))));
+    el('p', { class: 'sc-legend' },
+      el('span', {}, led('ok'), 'on'), el('span', {}, led('warn'), 'off'), el('span', {}, led('err'), 'not answering')),
+    el('ul', { class: 'sc-rows' }, boards.map(b => {
+      const look = boardLook(b, power);
+      const dot = led(look.kind);
+      dot.title = look.title;
+      return el('li', {},
+        dot,
+        el('span', { class: 'sc-name' }, b.name, el('span', { class: 'sc-note', text: look.note })),
+        b.live ? el('span', { class: 'sc-pill live', text: 'live' }) : null,
+        el('span', { class: 'sc-right', text: b.reachable && b.metered ? `${b.milliamps} mA` : '' }));
+    })));
 }
 
 function renderFpp(f) {
@@ -274,7 +296,7 @@ async function poll() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const s = await res.json();
     lastStatus = s; lastOk = Date.now();
-    renderNow(s.fpp); renderPower(s.power); renderStream(s.stream); renderBoards(s.boards); renderFpp(s.fpp); markCurrent();
+    renderNow(s.fpp); renderPower(s.power); renderStream(s.stream); renderBoards(s.boards, s.power); renderFpp(s.fpp); markCurrent();
     $('scUpdated').textContent = new Date(s.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
     $('scUpdated').classList.remove('stale');
   } catch (e) {
