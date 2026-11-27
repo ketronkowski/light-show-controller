@@ -39,6 +39,7 @@ body.show-page { padding: 0 1rem calc(2rem + env(safe-area-inset-bottom)); }
 .sc-led.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
 .sc-led.warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
 .sc-led.err { background: var(--err); box-shadow: 0 0 8px var(--err); }
+.sc-led.down { background: var(--down); box-shadow: 0 0 8px var(--down); }
 .sc-legend { display: flex; gap: 1rem; margin: 0.35rem 0 0; font-size: 0.78rem; color: var(--text-dim); }
 .sc-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
 .sc-song { font-size: 1.35rem; font-weight: 700; margin: 0.4rem 0 0.15rem; overflow-wrap: anywhere; }

@@ -208,18 +208,18 @@ async function flipSwitch(label, on) {
   }
 }
 
-// One board's light: green when WLED is on (or taking FPP data), amber when it answers but WLED is off,
-// red when it doesn't answer. A red board whose plug or the show circuit reads off says so: no 120 V.
+// One board's light: green when WLED is on (or taking FPP data), red when it answers but WLED is off,
+// blue when it doesn't answer. A blue board whose plug or the show circuit reads off says so: no 120 V.
 function boardLook(b, power) {
   if (!b.reachable) {
     const circuitOff = power?.circuit?.state === 'off';
     const plugOff = b.plug && (power?.plugs || []).some(pl => pl.label === b.plug && pl.state === 'off');
     const why = circuitOff ? 'show circuit is off' : plugOff ? `plug ${b.plug} is off` : (b.error || 'not answering');
-    return { kind: 'err', title: 'Not answering', note: why };
+    return { kind: 'down', title: 'Not answering', note: why };
   }
   const note = b.plug ? `plug: ${b.plug}` : b.ip;
   if (b.live || b.on === true) return { kind: 'ok', title: b.live ? 'On, taking show data' : 'On', note };
-  if (b.on === false) return { kind: 'warn', title: 'Answering, WLED is off', note: `off · ${note}` };
+  if (b.on === false) return { kind: 'err', title: 'Answering, WLED is off', note: `off · ${note}` };
   return { kind: '', title: 'Answering', note };
 }
 
@@ -234,7 +234,7 @@ function renderBoards(boards, power) {
   body.replaceChildren(
     el('p', { class: 'sc-dim', text: `${up} of ${boards.length} answering · ${live} live${est}` }),
     el('p', { class: 'sc-legend' },
-      el('span', {}, led('ok'), 'on'), el('span', {}, led('warn'), 'off'), el('span', {}, led('err'), 'not answering')),
+      el('span', {}, led('ok'), 'on'), el('span', {}, led('err'), 'off'), el('span', {}, led('down'), 'not answering')),
     el('ul', { class: 'sc-rows' }, boards.map(b => {
       const look = boardLook(b, power);
       const dot = led(look.kind);
