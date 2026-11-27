@@ -30,6 +30,7 @@ class ShowStatusService(
     private val props: PreShowProperties,
     private val parser: XLightsConfigParser,
     private val objectMapper: ObjectMapper,
+    private val requestQueue: RequestQueueClient,
     @Value("\${xlights.data-dir}") dataDir: String,
 ) {
     private val log = LoggerFactory.getLogger(ShowStatusService::class.java)
@@ -59,12 +60,14 @@ class ShowStatusService(
         val powerF = CompletableFuture.supplyAsync({ powerNow() }, pool)
         val boardsF = CompletableFuture.supplyAsync({ boardsNow() }, pool)
         val streamF = CompletableFuture.supplyAsync({ streamNow() }, pool)
+        val queueF = CompletableFuture.supplyAsync({ requestQueue.queue() }, pool)
         val status = ShowStatus(
             at = now,
             fpp = runCatching { fppF.get(6, TimeUnit.SECONDS) }.getOrElse { FppNow(host, false, error = "timed out") },
             power = runCatching { powerF.get(6, TimeUnit.SECONDS) }.getOrElse { PowerNow(ha.configured) },
             boards = runCatching { boardsF.get(6, TimeUnit.SECONDS) }.getOrElse { emptyList() },
             stream = runCatching { streamF.get(6, TimeUnit.SECONDS) }.getOrElse { StreamNow(streamConfigured()) },
+            queue = runCatching { queueF.get(6, TimeUnit.SECONDS) }.getOrElse { RequestQueue(requestQueue.configured, error = "timed out") },
         )
         cached = status
         return status

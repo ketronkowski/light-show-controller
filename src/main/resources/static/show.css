@@ -51,6 +51,18 @@ body.show-page { padding: 0 1rem calc(2rem + env(safe-area-inset-bottom)); }
 .sc-kv dt { color: var(--text-dim); }
 .sc-kv dd { margin: 0; font-family: var(--font-mono); overflow-wrap: anywhere; }
 
+/* Requests in line (Remote Falcon queue) */
+.sc-queue { margin-top: 0.9rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.sc-q-title { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin: 0 0 0.45rem; font-weight: 600; }
+.sc-q-count { font-family: var(--font-mono); background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 0 0.45rem; letter-spacing: 0; }
+.sc-q-list { list-style: none; counter-reset: q; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+.sc-q-list li { counter-increment: q; display: flex; align-items: center; gap: 0.6rem; font-size: 0.95rem; min-width: 0; }
+.sc-q-list li::before { content: counter(q); font-family: var(--font-mono); color: var(--text-faint); font-size: 0.8rem; min-width: 1.2rem; text-align: right; }
+.sc-q-title-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sc-q-src { flex: none; font-size: 0.72rem; padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px solid var(--border); color: var(--text-dim); white-space: nowrap; }
+.sc-q-src.driveway { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.sc-q-src.stream { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
 /* Meters */
 .sc-meters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
 .sc-meter { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; }

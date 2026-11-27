@@ -29,6 +29,14 @@ export const showStatus = {
     name, ip: `192.168.6.${20 + i}`, reachable: i !== 7, live: i !== 7, plug: i < 5 ? null : 'Octa 5–8',
     maxMilliamps: 5000, milliamps: 1200 + i * 90, error: i === 7 ? 'timed out' : null,
   })),
+  queue: {
+    configured: true,
+    requests: [
+      { title: 'Wizards in Winter', sequence: 'Wizards', source: 'driveway' },
+      { title: 'Mad Russian', sequence: 'Mad Russian', source: 'stream' },
+      { title: 'Sleigh Ride', sequence: 'Sleigh Ride', source: null },
+    ],
+  },
 };
 
 export const showPlaylists = [

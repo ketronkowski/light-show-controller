@@ -22,12 +22,27 @@ const num = (v, d = 0) => v == null ? '–' : Number(v).toFixed(d);
 
 function led(kind) { return el('span', { class: `sc-led ${kind || ''}` }); }
 
-function renderNow(f) {
+const SOURCE_LABEL = { driveway: 'Driveway', stream: 'Live stream', owner: 'Owner' };
+
+// Remote Falcon requests waiting to play, next first, each tagged with where it came from.
+function requestQueue(q) {
+  if (!q || !q.configured) return null;
+  const head = el('h3', { class: 'sc-q-title' }, 'Requests in line',
+    q.requests?.length ? el('span', { class: 'sc-q-count', text: String(q.requests.length) }) : null);
+  if (q.error) return el('div', { class: 'sc-queue' }, head, el('p', { class: 'sc-dim', text: `Remote Falcon not answering · ${q.error}` }));
+  if (!q.requests.length) return el('div', { class: 'sc-queue' }, head, el('p', { class: 'sc-dim', text: 'No requests waiting.' }));
+  return el('div', { class: 'sc-queue' }, head, el('ol', { class: 'sc-q-list' }, q.requests.map(r => el('li', {},
+    el('span', { class: 'sc-q-title-text', text: r.title }),
+    r.source ? el('span', { class: `sc-q-src ${r.source}`, text: SOURCE_LABEL[r.source] || r.source }) : null))));
+}
+
+function renderNow(f, queue) {
   const body = $('nowBody');
   if (!f.reachable) {
     body.replaceChildren(
       el('span', { class: 'sc-state' }, led('err'), 'FPP not answering'),
-      el('p', { class: 'sc-sub', text: `${f.host || 'no address'}${f.error ? ` · ${f.error}` : ''}` }));
+      el('p', { class: 'sc-sub', text: `${f.host || 'no address'}${f.error ? ` · ${f.error}` : ''}` }),
+      requestQueue(queue) || '');
     return;
   }
   const status = f.status || 'unknown';
@@ -51,6 +66,8 @@ function renderNow(f) {
   if (f.schedulerEnabled === false) add('Scheduler', 'off');
   if (f.volume != null) add('Volume', `${f.volume}${f.expectedVolume != null && f.expectedVolume !== f.volume ? ` (show level ${f.expectedVolume})` : ''}`);
   kids.push(kv);
+  const rq = requestQueue(queue);
+  if (rq) kids.push(rq);
   body.replaceChildren(...kids);
 }
 
@@ -296,7 +313,7 @@ async function poll() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const s = await res.json();
     lastStatus = s; lastOk = Date.now();
-    renderNow(s.fpp); renderPower(s.power); renderStream(s.stream); renderBoards(s.boards, s.power); renderFpp(s.fpp); markCurrent();
+    renderNow(s.fpp, s.queue); renderPower(s.power); renderStream(s.stream); renderBoards(s.boards, s.power); renderFpp(s.fpp); markCurrent();
     $('scUpdated').textContent = new Date(s.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
     $('scUpdated').classList.remove('stale');
   } catch (e) {
