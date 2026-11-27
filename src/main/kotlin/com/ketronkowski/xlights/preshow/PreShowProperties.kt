@@ -124,6 +124,10 @@ data class PreShowProperties(
         val streamAudioEntity: String = "",
         /** sensor with the stream's recent audio peak in dBFS (live-01 status audio_peak_db), shown in the report. */
         val streamAudioPeakEntity: String = "",
+        /** sensor with the live stream's viewer count (live-01 status viewers), shown on Show Control. Blank = skip. */
+        val streamViewersEntity: String = "",
+        /** sensor with live-01's upload in Mbit/s (live-01 status upload_mbps), shown on Show Control. Blank = skip. */
+        val streamUploadEntity: String = "",
     )
 
     /**

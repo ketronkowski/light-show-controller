@@ -1,4 +1,4 @@
-// Show Control page: FPP playback, power and board status, plus switches such as the road speakers.
+// Show Control page: FPP playback, power, live stream and board status, plus switches such as the road speakers.
 'use strict';
 
 const POLL_MS = 5000;
@@ -158,6 +158,32 @@ function renderPower(p) {
   body.replaceChildren(...kids);
 }
 
+const FEED_NAMES = { phone: 'iPhone', 'camera-4k': 'Camera (4K)', 'camera-720p': 'Camera (720p)', slate: 'Slate', none: 'Off the air' };
+
+function renderStream(st) {
+  const body = $('streamBody');
+  if (!st?.configured) { body.replaceChildren(el('p', { class: 'sc-dim', text: 'No live-stream sensors configured.' })); return; }
+  const hist = st.history || [];
+  const peak = hist.reduce((m, h) => h.viewers != null && h.viewers > m ? h.viewers : m, st.viewers ?? -1);
+  const kids = [el('div', { class: 'sc-meters' },
+    el('div', { class: 'sc-meter' }, el('b', { text: st.viewers ?? '–' }), el('small', { text: st.viewers === 1 ? 'viewer' : 'viewers' })),
+    el('div', { class: 'sc-meter' }, el('b', { text: num(st.uploadMbps, 1) }), el('small', { text: 'Mbit/s up' })),
+    el('div', { class: 'sc-meter' }, el('b', { text: peak >= 0 ? peak : '–' }), el('small', { text: 'peak, 1 h' })))];
+  const src = st.feedSource, audio = st.audio;
+  const onAir = src && src !== 'none';
+  kids.push(el('ul', { class: 'sc-rows' },
+    src ? el('li', {}, led(src === 'phone' ? 'ok' : onAir ? 'warn' : 'err'), el('span', { class: 'sc-name', text: 'Picture' }),
+      el('span', { class: 'sc-right', text: FEED_NAMES[src] || src })) : null,
+    audio ? el('li', {}, led(audio === 'on' ? 'ok' : 'err'), el('span', { class: 'sc-name', text: 'Sound' }),
+      el('span', { class: 'sc-right', text: audio === 'on' ? 'ok' : audio === 'off' ? 'no audio' : audio })) : null));
+  const age = st.updated ? (Date.now() - Date.parse(st.updated)) / 60000 : null;
+  kids.push(el('p', { class: age != null && age > 3 ? 'sc-err' : 'sc-dim',
+    text: age == null ? 'Viewer and upload readings not available yet.'
+      : age > 3 ? `Readings are ${Math.round(age)} min old (live-01 status not refreshing).`
+      : 'From live-01 via Home Assistant, about once a minute.' }));
+  body.replaceChildren(...kids);
+}
+
 const switchBusy = new Set();
 let switchError = null;
 async function flipSwitch(label, on) {
@@ -243,7 +269,7 @@ async function poll() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const s = await res.json();
     lastStatus = s; lastOk = Date.now();
-    renderNow(s.fpp); renderPower(s.power); renderBoards(s.boards); renderFpp(s.fpp); markCurrent();
+    renderNow(s.fpp); renderPower(s.power); renderStream(s.stream); renderBoards(s.boards); renderFpp(s.fpp); markCurrent();
     $('scUpdated').textContent = new Date(s.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
     $('scUpdated').classList.remove('stale');
   } catch (e) {

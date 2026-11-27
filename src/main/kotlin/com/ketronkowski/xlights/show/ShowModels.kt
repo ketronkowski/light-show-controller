@@ -8,6 +8,7 @@ data class ShowStatus(
     val fpp: FppNow,
     val power: PowerNow,
     val boards: List<BoardNow>,
+    val stream: StreamNow = StreamNow(configured = false),
     /** False on the LAN host without a client certificate, and wherever no login is wired yet. */
     val canControl: Boolean = false,
 )
@@ -92,6 +93,25 @@ data class BoardNow(
     val plug: String? = null,
     val error: String? = null,
 )
+
+/** The live video stream (live-01, through Home Assistant's sensors for its /status). */
+data class StreamNow(
+    val configured: Boolean,
+    /** WebRTC viewers watching now (live page and admin browsers). */
+    val viewers: Int? = null,
+    /** live-01's upload in Mbit/s (10 s average, refreshed by HA about once a minute). */
+    val uploadMbps: Double? = null,
+    /** phone, camera-4k, camera-720p, slate or none. */
+    val feedSource: String? = null,
+    /** on / off / unavailable for the stream-audio binary_sensor. */
+    val audio: String? = null,
+    /** When HA last refreshed the viewer or upload sensor. */
+    val updated: Instant? = null,
+    /** Viewer count and upload, one point a minute, up to an hour. */
+    val history: List<StreamSample> = emptyList(),
+)
+
+data class StreamSample(val at: Instant, val viewers: Int?, val uploadMbps: Double?)
 
 data class PlaylistSummary(val name: String, val items: List<PlaylistItem>, val error: String? = null)
 

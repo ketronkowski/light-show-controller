@@ -37,6 +37,7 @@ class ShowStatusService(
     private val pool = Executors.newVirtualThreadPerTaskExecutor()
     private val wled = FppShowClient.quickClient(Duration.ofMillis(1500), Duration.ofSeconds(3))
     private val history = ConcurrentLinkedDeque<PowerSample>()
+    private val streamHistory = ConcurrentLinkedDeque<StreamSample>()
 
     @Volatile private var layout: Pair<Instant, List<XLightsController>>? = null
     @Volatile private var cached: ShowStatus? = null
@@ -57,11 +58,13 @@ class ShowStatusService(
         val fppF = CompletableFuture.supplyAsync({ fppNow(host) }, pool)
         val powerF = CompletableFuture.supplyAsync({ powerNow() }, pool)
         val boardsF = CompletableFuture.supplyAsync({ boardsNow() }, pool)
+        val streamF = CompletableFuture.supplyAsync({ streamNow() }, pool)
         val status = ShowStatus(
             at = now,
             fpp = runCatching { fppF.get(6, TimeUnit.SECONDS) }.getOrElse { FppNow(host, false, error = "timed out") },
             power = runCatching { powerF.get(6, TimeUnit.SECONDS) }.getOrElse { PowerNow(ha.configured) },
             boards = runCatching { boardsF.get(6, TimeUnit.SECONDS) }.getOrElse { emptyList() },
+            stream = runCatching { streamF.get(6, TimeUnit.SECONDS) }.getOrElse { StreamNow(streamConfigured()) },
         )
         cached = status
         return status
@@ -159,6 +162,49 @@ class ShowStatusService(
         val now = Instant.now()
         history.addLast(PowerSample(now, w, amps, volts))
         while (history.peekFirst()?.let { Duration.between(it.at, now) > HISTORY_SPAN } == true) history.pollFirst()
+    }
+
+    // ---- Live stream -----------------------------------------------------------------
+
+    private fun streamConfigured(): Boolean = ha.configured && with(props.ha) {
+        listOf(streamViewersEntity, streamUploadEntity, feedSourceEntity, streamAudioEntity).any { it.isNotBlank() }
+    }
+
+    /** Reads live-01's stream sensors from Home Assistant; never calls live-01 itself (it is the encoder). */
+    internal fun streamNow(): StreamNow {
+        if (!streamConfigured()) return StreamNow(configured = false)
+        val cfg = props.ha
+        fun read(entity: String): JsonNode? = entity.ifBlank { null }?.let { runCatching { ha.state(it) }.getOrNull() }
+        fun text(n: JsonNode?) = n?.path("state")?.asText("")?.ifBlank { null }
+        val viewersF = CompletableFuture.supplyAsync({ read(cfg.streamViewersEntity) }, pool)
+        val uploadF = CompletableFuture.supplyAsync({ read(cfg.streamUploadEntity) }, pool)
+        val sourceF = CompletableFuture.supplyAsync({ read(cfg.feedSourceEntity) }, pool)
+        val audioF = CompletableFuture.supplyAsync({ read(cfg.streamAudioEntity) }, pool)
+        val viewers = viewersF.join()
+        val upload = uploadF.join()
+        val updated = listOfNotNull(viewers, upload)
+            .mapNotNull { n -> runCatching { Instant.parse(n.path("last_reported").asText(n.path("last_updated").asText())) }.getOrNull() }
+            .maxOrNull()
+        return StreamNow(
+            configured = true,
+            viewers = text(viewers)?.toDoubleOrNull()?.toInt(),
+            uploadMbps = text(upload)?.toDoubleOrNull(),
+            feedSource = text(sourceF.join()),
+            audio = text(audioF.join()),
+            updated = updated,
+            history = streamHistory.toList(),
+        )
+    }
+
+    /** One viewer/upload sample a minute (HA refreshes live-01's status about that often), kept for an hour. */
+    @Scheduled(fixedDelay = 60_000, initialDelay = 15_000)
+    fun sampleStream() {
+        if (!ha.configured || (props.ha.streamViewersEntity.isBlank() && props.ha.streamUploadEntity.isBlank())) return
+        val s = streamNow()
+        if (s.viewers == null && s.uploadMbps == null) return
+        val now = Instant.now()
+        streamHistory.addLast(StreamSample(now, s.viewers, s.uploadMbps))
+        while (streamHistory.peekFirst()?.let { Duration.between(it.at, now) > HISTORY_SPAN } == true) streamHistory.pollFirst()
     }
 
     // ---- WLED boards -----------------------------------------------------------------
