@@ -277,18 +277,28 @@ internal fun parseFpp(host: String, s: JsonNode, info: JsonNode?, expectedVolume
     )
 }
 
+/**
+ * WLED adds this fixed ESP32 draw to leds.pwr, and reports only this when no limiter is configured.
+ * leds.maxpwr is just the whole-board limit, so boards with per-output limits report maxpwr 0 while
+ * still estimating; a pwr above this baseline is how we tell they are metered.
+ */
+internal const val WLED_ESP_BASELINE_MA = 120
+
 /** WLED's /json/si (state + info in one reply). */
 internal fun parseBoard(name: String, ip: String, plug: String?, si: JsonNode): BoardNow {
     val info = si.path("info")
     val state = si.path("state")
     val leds = info.path("leds")
+    val milliamps = leds.path("pwr").takeIf { it.isNumber }?.asInt()
+    val maxMilliamps = leds.path("maxpwr").takeIf { it.isNumber }?.asInt()?.takeIf { it > 0 }
     return BoardNow(
         name = name,
         ip = ip,
         reachable = true,
         live = info.path("live").asBoolean(false),
-        milliamps = leds.path("pwr").takeIf { it.isNumber }?.asInt(),
-        maxMilliamps = leds.path("maxpwr").takeIf { it.isNumber }?.asInt()?.takeIf { it > 0 },
+        milliamps = milliamps,
+        maxMilliamps = maxMilliamps,
+        metered = maxMilliamps != null || (milliamps ?: 0) > WLED_ESP_BASELINE_MA,
         on = state.path("on").takeIf { it.isBoolean }?.asBoolean(),
         brightness = state.path("bri").takeIf { it.isNumber }?.asInt(),
         plug = plug,
