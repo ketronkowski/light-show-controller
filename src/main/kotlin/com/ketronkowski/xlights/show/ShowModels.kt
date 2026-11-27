@@ -104,6 +104,9 @@ data class StreamNow(
     val viewers: Int? = null,
     /** live-01's upload in Mbit/s (10 s average, refreshed by HA about once a minute). */
     val uploadMbps: Double? = null,
+    /** Invite links with screens playing now, most first (viewers_by_link attribute of the viewers sensor);
+     *  null when HA doesn't have it. Admin screens are not in it. */
+    val byLink: List<LinkViewers>? = null,
     /** phone, camera-4k, camera-720p, slate or none. */
     val feedSource: String? = null,
     /** on / off / unavailable for the stream-audio binary_sensor. */
@@ -113,6 +116,8 @@ data class StreamNow(
     /** Viewer count and upload, one point a minute, up to an hour. */
     val history: List<StreamSample> = emptyList(),
 )
+
+data class LinkViewers(val label: String, val screens: Int)
 
 data class StreamSample(val at: Instant, val viewers: Int?, val uploadMbps: Double?)
 

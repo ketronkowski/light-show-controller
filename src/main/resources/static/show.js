@@ -169,6 +169,11 @@ function renderStream(st) {
     el('div', { class: 'sc-meter' }, el('b', { text: st.viewers ?? '–' }), el('small', { text: st.viewers === 1 ? 'viewer' : 'viewers' })),
     el('div', { class: 'sc-meter' }, el('b', { text: num(st.uploadMbps, 1) }), el('small', { text: 'Mbit/s up' })),
     el('div', { class: 'sc-meter' }, el('b', { text: peak >= 0 ? peak : '–' }), el('small', { text: 'peak, 1 h' })))];
+  if (Array.isArray(st.byLink)) {
+    kids.push(el('p', { class: 'sc-dim', text: st.byLink.length
+      ? 'Watching now: ' + st.byLink.map(l => `${l.label} ${l.screens}`).join(', ')
+      : 'No invite links playing now.' }));
+  }
   const src = st.feedSource, audio = st.audio;
   const onAir = src && src !== 'none';
   kids.push(el('ul', { class: 'sc-rows' },
