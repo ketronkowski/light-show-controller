@@ -68,5 +68,18 @@ class ShowParsingTest {
         assertEquals("Octa5-8", b.plug)
         val off = parseBoard("X", "1.2.3.4", null, json("""{"state":{"on":false},"info":{"leds":{"pwr":0,"maxpwr":0}}}"""))
         assertFalse(off.live); assertNull(off.maxMilliamps); assertEquals(0, off.milliamps)
+        assertTrue(b.metered); assertFalse(off.metered)
+    }
+
+    @Test
+    fun `board with per-output limits is metered, board without a limiter is not`() {
+        val perOutput = parseBoard("Mega Tree 1", "192.168.6.31", null, json("""
+            {"state":{"on":true},"info":{"leds":{"count":1600,"pwr":1720,"maxpwr":0}}}
+        """))
+        assertTrue(perOutput.metered); assertNull(perOutput.maxMilliamps); assertEquals(1720, perOutput.milliamps)
+        val noLimiter = parseBoard("Front Bed", "192.168.6.41", null, json("""
+            {"state":{"on":true},"info":{"leds":{"count":1398,"pwr":120,"maxpwr":0}}}
+        """))
+        assertFalse(noLimiter.metered)
     }
 }

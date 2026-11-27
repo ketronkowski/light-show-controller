@@ -207,8 +207,8 @@ function renderBoards(boards) {
   const body = $('boardsBody');
   if (!boards.length) { body.replaceChildren(el('p', { class: 'sc-dim', text: 'No WLED boards: upload the xLights show folder on the main page.' })); return; }
   const up = boards.filter(b => b.reachable).length, live = boards.filter(b => b.live).length;
-  // WLED's current estimate only means something when its brightness limiter is on (maxpwr > 0).
-  const metered = boards.filter(b => b.maxMilliamps);
+  // WLED's current estimate only means something when a brightness limiter is on (whole-board or per-output).
+  const metered = boards.filter(b => b.reachable && b.metered);
   const totalMa = metered.reduce((s, b) => s + (b.milliamps || 0), 0);
   const est = metered.length ? ` · ${(totalMa / 1000).toFixed(1)} A estimated on ${metered.length}` : '';
   body.replaceChildren(
@@ -217,7 +217,7 @@ function renderBoards(boards) {
       led(!b.reachable ? 'err' : b.live ? 'ok' : ''),
       el('span', { class: 'sc-name' }, b.name, el('span', { class: 'sc-note', text: b.reachable ? (b.plug ? `plug: ${b.plug}` : b.ip) : (b.error || 'not answering') })),
       b.live ? el('span', { class: 'sc-pill live', text: 'live' }) : null,
-      el('span', { class: 'sc-right', text: b.reachable && b.maxMilliamps ? `${b.milliamps} mA` : '' })))));
+      el('span', { class: 'sc-right', text: b.reachable && b.metered ? `${b.milliamps} mA` : '' })))));
 }
 
 function renderFpp(f) {

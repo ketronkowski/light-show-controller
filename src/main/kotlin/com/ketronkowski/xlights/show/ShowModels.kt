@@ -85,9 +85,12 @@ data class BoardNow(
     val reachable: Boolean,
     /** True while the board is taking realtime (FPP) data. */
     val live: Boolean = false,
-    /** WLED's estimated current draw in mA (from the brightness limiter); 0 when black. */
+    /** WLED's estimated current draw in mA (from the brightness limiter), including its fixed ESP baseline. */
     val milliamps: Int? = null,
+    /** WLED's whole-board current limit in mA; null when the board uses per-output limits or none. */
     val maxMilliamps: Int? = null,
+    /** True when [milliamps] is a real estimate: a whole-board limit is set, or per-output limits lift it above the ESP baseline. */
+    val metered: Boolean = false,
     val on: Boolean? = null,
     val brightness: Int? = null,
     val plug: String? = null,
