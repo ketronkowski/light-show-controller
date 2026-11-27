@@ -189,11 +189,22 @@ class ShowStatusService(
             configured = true,
             viewers = text(viewers)?.toDoubleOrNull()?.toInt(),
             uploadMbps = text(upload)?.toDoubleOrNull(),
+            byLink = viewersByLink(viewers),
             feedSource = text(sourceF.join()),
             audio = text(audioF.join()),
             updated = updated,
             history = streamHistory.toList(),
         )
+    }
+
+    /** The viewers sensor's viewers_by_link attribute ([{label, screens}]), or null if it isn't there. */
+    private fun viewersByLink(viewers: JsonNode?): List<LinkViewers>? {
+        val list = viewers?.path("attributes")?.path("viewers_by_link")?.takeIf { it.isArray } ?: return null
+        return list.mapNotNull { n ->
+            val label = n.path("label").asText("").ifBlank { null } ?: return@mapNotNull null
+            val screens = n.path("screens").takeIf { it.isNumber }?.asInt() ?: return@mapNotNull null
+            LinkViewers(label, screens).takeIf { screens > 0 }
+        }
     }
 
     /** One viewer/upload sample a minute (HA refreshes live-01's status about that often), kept for an hour. */

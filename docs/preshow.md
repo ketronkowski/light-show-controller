@@ -141,8 +141,10 @@ Limit the automation to show nights with an extra condition (a date range or a
 The live stream box (live-01) serves `GET http://192.168.4.10:9998/status`:
 `{"phone_ready": bool, "show_ready": bool, "feed_source": "phone"|"slate"|"none",
 "audio_device": bool, "audio_ok": bool, "audio_peak_db": float|null, "last_audio_at": "..."|null,
-"viewers": int|null, "upload_mbps": float|null, "updated": "..."}`. `viewers` counts WebRTC viewers of path `show`;
-`upload_mbps` is live-01's upload over the last 10 s. The Show Control page's Live stream card reads the
+"viewers": int|null, "upload_mbps": float|null, "viewers_by_link": [...]|null, "updated": "..."}`. `viewers` counts WebRTC viewers of path `show`;
+`upload_mbps` is live-01's upload over the last 10 s. `viewers_by_link` (`[{"label", "screens"}]` or null) lists
+the invite links with screens playing now, from live-gate; HA keeps it as an attribute of the viewers sensor and the
+card shows it as "Watching now: Smith 2, Jones 1". The Show Control page's Live stream card reads the
 viewer and upload sensors (`preshow.ha.stream-viewers-entity`, `preshow.ha.stream-upload-entity`) plus the feed
 source and audio entities, all from Home Assistant: the app never polls live-01 itself.
 `audio_ok` is true when the ClearClick USB adapter is present, the show path has an audio track and
@@ -176,6 +178,9 @@ rest:
         unique_id: live_stream_viewers
         value_template: "{{ value_json.viewers }}"
         state_class: measurement
+        # [{label, screens}] per invite link playing now (Show Control "Watching now"); admin screens left out
+        json_attributes:
+          - viewers_by_link
       - name: Live stream upload
         unique_id: live_stream_upload
         value_template: "{{ value_json.upload_mbps }}"

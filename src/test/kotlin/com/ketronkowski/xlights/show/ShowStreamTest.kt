@@ -39,6 +39,29 @@ class ShowStreamTest {
         assertEquals("phone", s.feedSource)
         assertEquals("on", s.audio)
         assertEquals(Instant.parse("2026-11-26T22:40:12Z"), s.updated)
+        assertNull(s.byLink, "no attribute: unknown, not nobody")
+    }
+
+    @Test
+    fun `lists the households watching from the viewers_by_link attribute`(@TempDir dir: Path) {
+        val ha = mock<HomeAssistantClient> {
+            on { configured } doReturn true
+            on { state("sensor.live_stream_viewers") } doReturn json.readTree(
+                """{"state":"4","attributes":{"viewers_by_link":[{"label":"Smith","screens":2},
+                   {"label":"Jones","screens":1},{"label":"","screens":1},{"label":"Gone","screens":0}]}}""")
+        }
+        val s = ShowStatusService(mock(), ha, props, mock(), json, dir.toString()).streamNow()
+        assertEquals(listOf(LinkViewers("Smith", 2), LinkViewers("Jones", 1)), s.byLink)
+    }
+
+    @Test
+    fun `an empty viewers_by_link means nobody on a link`(@TempDir dir: Path) {
+        val ha = mock<HomeAssistantClient> {
+            on { configured } doReturn true
+            on { state("sensor.live_stream_viewers") } doReturn json.readTree(
+                """{"state":"1","attributes":{"viewers_by_link":[]}}""")
+        }
+        assertEquals(emptyList<LinkViewers>(), ShowStatusService(mock(), ha, props, mock(), json, dir.toString()).streamNow().byLink)
     }
 
     @Test
