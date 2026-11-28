@@ -1,5 +1,43 @@
 # Changelog
 
+## [2.1.0](https://github.com/ketronkowski/light-show-controller/compare/v2.0.0...v2.1.0) (2026-11-28)
+
+
+### Features
+
+* Boundary finder on the phone ([#61](https://github.com/ketronkowski/light-show-controller/issues/61)) ([e9ffe40](https://github.com/ketronkowski/light-show-controller/commit/e9ffe40008cb21a07a85664adf1d3d4c03e489ab))
+* camera light test lights each model through FPP and grades it with the show camera ([#41](https://github.com/ketronkowski/light-show-controller/issues/41)) ([4d0b0c7](https://github.com/ketronkowski/light-show-controller/commit/4d0b0c7f147f6559f30efc12cef92d98854cc46f))
+* color the Show Control board lights by on, off and not answering ([#73](https://github.com/ketronkowski/light-show-controller/issues/73)) ([e9d845e](https://github.com/ketronkowski/light-show-controller/commit/e9d845e7c86dba5eb358d211c44d977677c45851))
+* consistent page layout across the app, plus a phone screenshot script ([#62](https://github.com/ketronkowski/light-show-controller/issues/62)) ([3fe99e1](https://github.com/ketronkowski/light-show-controller/commit/3fe99e1498f0f19a32d0c076d0a06d78597f0569))
+* install the app on a phone's home screen ([#63](https://github.com/ketronkowski/light-show-controller/issues/63)) ([79ff473](https://github.com/ketronkowski/light-show-controller/commit/79ff47395296e64ef94c6cd96df66a09e3db106b))
+* jukebox interrupt test in the pre-show check ([#65](https://github.com/ketronkowski/light-show-controller/issues/65)) ([53f5dfc](https://github.com/ketronkowski/light-show-controller/commit/53f5dfc7aabe5b01f1341e98f6dbcc6462f78cd5))
+* Latest light test page with each model's picture from the latest test and calibration ([#56](https://github.com/ketronkowski/light-show-controller/issues/56)) ([963339c](https://github.com/ketronkowski/light-show-controller/commit/963339cde1de3a23d899a242accd538a2d0f07d7))
+* live stream viewers and upload on the Show Control page ([#70](https://github.com/ketronkowski/light-show-controller/issues/70)) ([23395e9](https://github.com/ketronkowski/light-show-controller/commit/23395e9344afaf35327026709fef174d19380e04))
+* models that don't light in the camera light test are warnings, so the show still gets a GO ([#67](https://github.com/ketronkowski/light-show-controller/issues/67)) ([df9d637](https://github.com/ketronkowski/light-show-controller/commit/df9d637e70b9c9aeb92393fd7c08b12b6b413380))
+* power graph hover readout and Cloudflare login look ([#48](https://github.com/ketronkowski/light-show-controller/issues/48)) ([9577db7](https://github.com/ketronkowski/light-show-controller/commit/9577db784335c777cacebd0a68b3960e2961a8e1))
+* Pre-show check on the phone, in the app's dark look ([#60](https://github.com/ketronkowski/light-show-controller/issues/60)) ([1e1ee33](https://github.com/ketronkowski/light-show-controller/commit/1e1ee338ab233979e53a36a4e4058580b32b27bc))
+* read-only Show Control page ([#46](https://github.com/ketronkowski/light-show-controller/issues/46)) ([8676598](https://github.com/ketronkowski/light-show-controller/commit/86765980e70a1a9aad71ea1b5a3b6faa9935cc87))
+* recalibrate only the models the camera couldn't see, after a repair ([#54](https://github.com/ketronkowski/light-show-controller/issues/54)) ([e2c30f0](https://github.com/ketronkowski/light-show-controller/commit/e2c30f0e3a3235beb60728ca67484fe8d7c0bad2))
+* Show Control page has an on/off button for the road speakers ([#57](https://github.com/ketronkowski/light-show-controller/issues/57)) ([01dab19](https://github.com/ketronkowski/light-show-controller/commit/01dab19c90b83bb1aca251c5b84caef92cf875e8))
+* show the request queue and requests per household on Show Control ([#76](https://github.com/ketronkowski/light-show-controller/issues/76)) ([059aa4d](https://github.com/ketronkowski/light-show-controller/commit/059aa4d85171209d99083672afc8d8f3cee97158))
+* show which invite links are watching on the Live stream card ([#72](https://github.com/ketronkowski/light-show-controller/issues/72)) ([d780385](https://github.com/ketronkowski/light-show-controller/commit/d780385cfb9116f84cdd74075d69ff032b1ed99e))
+* stream lip-sync result on the Pre-show page and in the pre-show report ([#68](https://github.com/ketronkowski/light-show-controller/issues/68)) ([66a7757](https://github.com/ketronkowski/light-show-controller/commit/66a77571eb2f4b7ff5782ef74a650af664942c44))
+* tab bar between pages (bottom bar on phone, tabs on laptop) ([#59](https://github.com/ketronkowski/light-show-controller/issues/59)) ([3ce33f5](https://github.com/ketronkowski/light-show-controller/commit/3ce33f5e38b7b438bff657c6175d51d513d4a544))
+* the camera light test grades only whether each model lights, and treats hidden peace stakes as a note ([#55](https://github.com/ketronkowski/light-show-controller/issues/55)) ([51e68cd](https://github.com/ketronkowski/light-show-controller/commit/51e68cdacd40f830006f00d905e1eceb4bb6b70f))
+* the light test switches off show boards on for the test and back off after ([#69](https://github.com/ketronkowski/light-show-controller/issues/69)) ([48556c6](https://github.com/ketronkowski/light-show-controller/commit/48556c6dc9035ac2ed7f56166b8dce6b37fcb674))
+
+
+### Bug Fixes
+
+* a light test or calibration started by hand isn't blocked by show hours ([#49](https://github.com/ketronkowski/light-show-controller/issues/49)) ([ab1e2a5](https://github.com/ketronkowski/light-show-controller/commit/ab1e2a5c2629c21ce559d82b9558ab3363a7af76))
+* judge standby current against boards-on or boards-off baseline ([#75](https://github.com/ketronkowski/light-show-controller/issues/75)) ([e1dd89a](https://github.com/ketronkowski/light-show-controller/commit/e1dd89a1ba274c87698de6d5121cb538492606b7))
+* show estimated current for WLED boards with per-output limits ([#71](https://github.com/ketronkowski/light-show-controller/issues/71)) ([d09f776](https://github.com/ketronkowski/light-show-controller/commit/d09f776cef9e79b8226912da828a5c870ce82104))
+* the camera calibration doesn't fail on FPP's plain-text replies or stay busy after an error ([#50](https://github.com/ketronkowski/light-show-controller/issues/50)) ([5180edc](https://github.com/ketronkowski/light-show-controller/commit/5180edcb158ae0a618a543a142bd2d1a4a0c9ec1))
+* the camera calibration no longer misses the first model it lights ([#53](https://github.com/ketronkowski/light-show-controller/issues/53)) ([047fbee](https://github.com/ketronkowski/light-show-controller/commit/047fbee242f7e76cf7f80fa03be39772a88d45af))
+* the camera calibration uses far less memory and reports an out-of-memory failure ([#52](https://github.com/ketronkowski/light-show-controller/issues/52)) ([006323f](https://github.com/ketronkowski/light-show-controller/commit/006323f722c5b5068af45c32672d0261c78de0af))
+* the camera snapshot accepts the UniFi console's certificate when reached by IP address ([#51](https://github.com/ketronkowski/light-show-controller/issues/51)) ([e7bc2b2](https://github.com/ketronkowski/light-show-controller/commit/e7bc2b2d15a62a18a32a4f6f0479a88d5dece45c))
+* the jukebox test's cleanup accepts FPP's plain-text reply to Stop ([#66](https://github.com/ketronkowski/light-show-controller/issues/66)) ([6c2f3e5](https://github.com/ketronkowski/light-show-controller/commit/6c2f3e56d2bc26011d662799f19001fe4ce91e1c))
+
 ## [2.0.0](https://github.com/ketronkowski/light-show-controller/compare/v1.0.0...v2.0.0) (2026-11-23)
 
 
