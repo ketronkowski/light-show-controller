@@ -51,6 +51,14 @@ body.show-page { padding: 0 1rem calc(2rem + env(safe-area-inset-bottom)); }
 .sc-kv dt { color: var(--text-dim); }
 .sc-kv dd { margin: 0; font-family: var(--font-mono); overflow-wrap: anywhere; }
 
+/* Remote Falcon request queue (Now playing card) */
+.sc-queue { margin-top: 0.9rem; border-top: 1px solid var(--border); padding-top: 0.6rem; }
+.sc-queue-title { margin: 0 0 0.35rem; font-size: 0.85rem; font-weight: 700; color: var(--text-dim); }
+.sc-queue-list { margin: 0; padding-left: 1.4rem; font-size: 0.92rem; }
+.sc-queue-list li { padding: 0.15rem 0; overflow-wrap: anywhere; }
+.sc-queue-list .sc-note { margin-left: 0.4rem; color: var(--text-dim); font-size: 0.78rem; }
+.sc-queue-empty { margin-top: 0.75rem; }
+
 /* Meters */
 .sc-meters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
 .sc-meter { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; }

@@ -9,6 +9,8 @@ data class ShowStatus(
     val power: PowerNow,
     val boards: List<BoardNow>,
     val stream: StreamNow = StreamNow(configured = false),
+    /** Remote Falcon's request queue (songs waiting to play), read-only. */
+    val queue: QueueNow = QueueNow(configured = false),
     /** False on the LAN host without a client certificate, and wherever no login is wired yet. */
     val canControl: Boolean = false,
 )
@@ -117,7 +119,21 @@ data class StreamNow(
     val history: List<StreamSample> = emptyList(),
 )
 
-data class LinkViewers(val label: String, val screens: Int)
+/** An invite link: screens playing now, and songs requested from the live page with it tonight. */
+data class LinkViewers(val label: String, val screens: Int, val requests: Int = 0)
+
+/** Remote Falcon's request queue, in play order. */
+data class QueueNow(
+    /** False when no plugins URL and show token are set (preshow.jukebox). */
+    val configured: Boolean,
+    /** What Remote Falcon thinks is playing (FPP's own status is on the Now playing card). */
+    val playingNow: String? = null,
+    val items: List<QueuedSong> = emptyList(),
+    val error: String? = null,
+)
+
+/** One queued request. [owner] = queued by the show (test request, managed PSA); [song] false for a PSA. */
+data class QueuedSong(val title: String, val sequence: String, val owner: Boolean = false, val song: Boolean = true)
 
 data class StreamSample(val at: Instant, val viewers: Int?, val uploadMbps: Double?)
 
