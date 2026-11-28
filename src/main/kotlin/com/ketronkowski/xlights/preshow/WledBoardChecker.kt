@@ -5,7 +5,6 @@ import com.ketronkowski.xlights.domain.XLightsController
 import com.ketronkowski.xlights.validation.ValidationService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.net.InetAddress
 import java.time.Duration
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -56,14 +55,8 @@ class WledBoardChecker(
         return results
     }
 
-    private fun showBoards(ctx: CheckContext): List<Board> {
-        val fppIp = ctx.fppHost?.let { resolve(it) }
-        return ctx.controllers
-            .filter { !it.isFpp && !it.ipAddress.isNullOrBlank() }
-            .filter { c -> cfg.ignore.none { it.equals(c.name, ignoreCase = true) } }
-            .filter { c -> fppIp == null || resolve(c.ipAddress!!) != fppIp }
-            .map { Board(it.name, it.ipAddress!!) }
-    }
+    private fun showBoards(ctx: CheckContext): List<Board> =
+        showBoardsOf(ctx, cfg.ignore).map { Board(it.name, it.host) }
 
     private fun fetch(board: Board): Result<Seen> {
         var last: Throwable? = null
@@ -108,7 +101,7 @@ class WledBoardChecker(
         val live = info.path("live").asBoolean(false)
         if (live) {
             val source = info.path("lip").asText("")
-            val fppIp = ctx.fppHost?.let { resolve(it) }
+            val fppIp = ctx.fppHost?.let { resolveHost(it) }
             if (fppIp != null && source.isNotBlank() && source != fppIp) {
                 out += CheckResult.warn(layer, "Show data", name, "receiving live data from $source, not FPP ($fppIp)")
             } else if (ctx.beforeShow) {
@@ -190,9 +183,6 @@ class WledBoardChecker(
             }
         }
     }
-
-    private fun resolve(host: String): String =
-        runCatching { InetAddress.getByName(host).hostAddress }.getOrDefault(host)
 
     /** Segments that are visibly lit: board on with brightness, segment on, and a color or a moving effect. */
     internal fun litSegments(state: JsonNode): Int {
