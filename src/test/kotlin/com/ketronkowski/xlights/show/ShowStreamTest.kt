@@ -32,7 +32,7 @@ class ShowStreamTest {
             on { state("sensor.live_feed_source") } doReturn json.readTree("""{"state":"phone"}""")
             on { state("binary_sensor.live_stream_audio") } doReturn json.readTree("""{"state":"on"}""")
         }
-        val s = ShowStatusService(mock(), ha, props, mock(), json, dir.toString()).streamNow()
+        val s = ShowStatusService(mock(), ha, props, mock(), json, mock(), dir.toString()).streamNow()
         assertTrue(s.configured)
         assertEquals(7, s.viewers)
         assertEquals(13.31, s.uploadMbps)
@@ -50,7 +50,7 @@ class ShowStreamTest {
                 """{"state":"4","attributes":{"viewers_by_link":[{"label":"Smith","screens":2},
                    {"label":"Jones","screens":1},{"label":"","screens":1},{"label":"Gone","screens":0}]}}""")
         }
-        val s = ShowStatusService(mock(), ha, props, mock(), json, dir.toString()).streamNow()
+        val s = ShowStatusService(mock(), ha, props, mock(), json, mock(), dir.toString()).streamNow()
         assertEquals(listOf(LinkViewers("Smith", 2), LinkViewers("Jones", 1)), s.byLink)
     }
 
@@ -61,7 +61,7 @@ class ShowStreamTest {
             on { state("sensor.live_stream_viewers") } doReturn json.readTree(
                 """{"state":"1","attributes":{"viewers_by_link":[]}}""")
         }
-        assertEquals(emptyList<LinkViewers>(), ShowStatusService(mock(), ha, props, mock(), json, dir.toString()).streamNow().byLink)
+        assertEquals(emptyList<LinkViewers>(), ShowStatusService(mock(), ha, props, mock(), json, mock(), dir.toString()).streamNow().byLink)
     }
 
     @Test
@@ -71,7 +71,7 @@ class ShowStreamTest {
             on { state("sensor.live_stream_viewers") } doReturn json.readTree("""{"state":"unknown"}""")
             on { state("sensor.live_stream_upload") } doThrow RuntimeException("404")
         }
-        val s = ShowStatusService(mock(), ha, props, mock(), json, dir.toString()).streamNow()
+        val s = ShowStatusService(mock(), ha, props, mock(), json, mock(), dir.toString()).streamNow()
         assertTrue(s.configured)
         assertNull(s.viewers)
         assertNull(s.uploadMbps)
@@ -81,6 +81,6 @@ class ShowStreamTest {
     fun `no stream entities means no stream card`(@TempDir dir: Path) {
         val ha = mock<HomeAssistantClient> { on { configured } doReturn true }
         val bare = PreShowProperties(ha = PreShowProperties.HomeAssistant(url = "http://ha", token = "t"))
-        assertFalse(ShowStatusService(mock(), ha, bare, mock(), json, dir.toString()).streamNow().configured)
+        assertFalse(ShowStatusService(mock(), ha, bare, mock(), json, mock(), dir.toString()).streamNow().configured)
     }
 }

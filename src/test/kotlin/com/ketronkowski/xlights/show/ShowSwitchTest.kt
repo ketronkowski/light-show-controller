@@ -25,7 +25,7 @@ class ShowSwitchTest {
             on { configured } doReturn true
             on { state(entity) } doReturn ObjectMapper().readTree("""{"state":"on"}""")
         }
-        val service = ShowStatusService(mock(), ha, props, mock(), ObjectMapper(), dir.toString())
+        val service = ShowStatusService(mock(), ha, props, mock(), ObjectMapper(), mock(), dir.toString())
         val sw = service.setSwitch("road speakers", true)
         verify(ha).setSwitch(entity, true)
         assertEquals("on", sw.state)
@@ -35,7 +35,7 @@ class ShowSwitchTest {
     @Test
     fun `refuses anything that isn't a configured switch`(@TempDir dir: Path) {
         val ha = mock<HomeAssistantClient> { on { configured } doReturn true }
-        val service = ShowStatusService(mock(), ha, props, mock(), ObjectMapper(), dir.toString())
+        val service = ShowStatusService(mock(), ha, props, mock(), ObjectMapper(), mock(), dir.toString())
         assertThrows<NoSuchElementException> { service.setSwitch("switch.front_yard_light_show", false) }
         verify(ha, never()).setSwitch(any(), any())
     }

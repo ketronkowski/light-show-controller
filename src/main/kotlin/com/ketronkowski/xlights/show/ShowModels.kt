@@ -9,6 +9,8 @@ data class ShowStatus(
     val power: PowerNow,
     val boards: List<BoardNow>,
     val stream: StreamNow = StreamNow(configured = false),
+    /** Remote Falcon song requests waiting to play. */
+    val queue: RequestQueue = RequestQueue(configured = false),
     /** False on the LAN host without a client certificate, and wherever no login is wired yet. */
     val canControl: Boolean = false,
 )
@@ -131,4 +133,20 @@ data class PlaylistItem(
     val sequence: String? = null,
     val media: String? = null,
     val seconds: Int? = null,
+)
+
+/** The Remote Falcon jukebox queue, next to play first. */
+data class RequestQueue(
+    val configured: Boolean,
+    val requests: List<QueuedRequest> = emptyList(),
+    val error: String? = null,
+)
+
+data class QueuedRequest(
+    /** Remote Falcon's display name, else the sequence name. */
+    val title: String,
+    val sequence: String,
+    /** driveway (passed the GPS check), stream (the live page's daily code), owner (a control panel or test
+     *  request), or null when Remote Falcon didn't record it (check off, or queued before it kept this). */
+    val source: String? = null,
 )
