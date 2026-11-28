@@ -12,10 +12,10 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 
 class RemoteFalconQueueTest {
     private val json = ObjectMapper()
@@ -43,7 +43,7 @@ class RemoteFalconQueueTest {
         val http = mock<JsonHttp> { on { get(any(), any()) } doThrow RuntimeException("404 Not Found") }
         val q = RemoteFalconQueue(http, props).now()
         assertNotNull(q.error)
-        assertEquals(emptyList(), q.items)
+        assertEquals(emptyList<QueuedSong>(), q.items)
     }
 
     @Test
