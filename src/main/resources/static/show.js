@@ -22,12 +22,26 @@ const num = (v, d = 0) => v == null ? '–' : Number(v).toFixed(d);
 
 function led(kind) { return el('span', { class: `sc-led ${kind || ''}` }); }
 
-function renderNow(f) {
+// Remote Falcon's request queue, under Now playing. Null when it isn't configured.
+function queueBlock(q) {
+  if (!q?.configured) return null;
+  if (q.error) return el('p', { class: 'sc-dim', text: `Up next: queue not readable (${q.error}).` });
+  const items = q.items || [];
+  if (!items.length) return el('p', { class: 'sc-dim sc-queue-empty', text: 'Up next: no requests queued.' });
+  return el('div', { class: 'sc-queue' },
+    el('h3', { class: 'sc-queue-title', text: `Up next (${items.length} queued)` }),
+    el('ol', { class: 'sc-queue-list' }, items.map(it => el('li', {},
+      el('span', { text: it.title }),
+      !it.song ? el('span', { class: 'sc-note', text: 'PSA' }) : it.owner ? el('span', { class: 'sc-note', text: 'test' }) : null))));
+}
+
+function renderNow(f, q) {
   const body = $('nowBody');
   if (!f.reachable) {
     body.replaceChildren(
       el('span', { class: 'sc-state' }, led('err'), 'FPP not answering'),
-      el('p', { class: 'sc-sub', text: `${f.host || 'no address'}${f.error ? ` · ${f.error}` : ''}` }));
+      el('p', { class: 'sc-sub', text: `${f.host || 'no address'}${f.error ? ` · ${f.error}` : ''}` }),
+      ...[queueBlock(q)].filter(Boolean));
     return;
   }
   const status = f.status || 'unknown';
@@ -51,6 +65,8 @@ function renderNow(f) {
   if (f.schedulerEnabled === false) add('Scheduler', 'off');
   if (f.volume != null) add('Volume', `${f.volume}${f.expectedVolume != null && f.expectedVolume !== f.volume ? ` (show level ${f.expectedVolume})` : ''}`);
   kids.push(kv);
+  const queue = queueBlock(q);
+  if (queue) kids.push(queue);
   body.replaceChildren(...kids);
 }
 
@@ -170,9 +186,17 @@ function renderStream(st) {
     el('div', { class: 'sc-meter' }, el('b', { text: num(st.uploadMbps, 1) }), el('small', { text: 'Mbit/s up' })),
     el('div', { class: 'sc-meter' }, el('b', { text: peak >= 0 ? peak : '–' }), el('small', { text: 'peak, 1 h' })))];
   if (Array.isArray(st.byLink)) {
-    kids.push(el('p', { class: 'sc-dim', text: st.byLink.length
-      ? 'Watching now: ' + st.byLink.map(l => `${l.label} ${l.screens}`).join(', ')
+    const watching = st.byLink.filter(l => l.screens > 0);
+    const asked = st.byLink.filter(l => l.requests > 0);
+    kids.push(el('p', { class: 'sc-dim', text: watching.length
+      ? 'Watching now: ' + watching.map(l => `${l.label} ${l.screens}`).join(', ')
       : 'No invite links playing now.' }));
+    if (asked.length) {
+      const total = asked.reduce((n, l) => n + l.requests, 0);
+      kids.push(el('p', { class: 'sc-dim', text: `Requests tonight (${total}): ` +
+        asked.slice().sort((a, b) => b.requests - a.requests || a.label.localeCompare(b.label))
+          .map(l => `${l.label} ${l.requests}`).join(', ') }));
+    }
   }
   const src = st.feedSource, audio = st.audio;
   const onAir = src && src !== 'none';
@@ -296,7 +320,7 @@ async function poll() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const s = await res.json();
     lastStatus = s; lastOk = Date.now();
-    renderNow(s.fpp); renderPower(s.power); renderStream(s.stream); renderBoards(s.boards, s.power); renderFpp(s.fpp); markCurrent();
+    renderNow(s.fpp, s.queue); renderPower(s.power); renderStream(s.stream); renderBoards(s.boards, s.power); renderFpp(s.fpp); markCurrent();
     $('scUpdated').textContent = new Date(s.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
     $('scUpdated').classList.remove('stale');
   } catch (e) {

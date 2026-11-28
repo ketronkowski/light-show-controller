@@ -31,6 +31,7 @@ class ShowStatusService(
     private val parser: XLightsConfigParser,
     private val objectMapper: ObjectMapper,
     @Value("\${xlights.data-dir}") dataDir: String,
+    private val rfQueue: RemoteFalconQueue? = null,
 ) {
     private val log = LoggerFactory.getLogger(ShowStatusService::class.java)
     private val xlightsDir: Path = Path.of(dataDir, "xlights")
@@ -59,12 +60,15 @@ class ShowStatusService(
         val powerF = CompletableFuture.supplyAsync({ powerNow() }, pool)
         val boardsF = CompletableFuture.supplyAsync({ boardsNow() }, pool)
         val streamF = CompletableFuture.supplyAsync({ streamNow() }, pool)
+        val queueF = CompletableFuture.supplyAsync({ rfQueue?.now() ?: QueueNow(configured = false) }, pool)
         val status = ShowStatus(
             at = now,
             fpp = runCatching { fppF.get(6, TimeUnit.SECONDS) }.getOrElse { FppNow(host, false, error = "timed out") },
             power = runCatching { powerF.get(6, TimeUnit.SECONDS) }.getOrElse { PowerNow(ha.configured) },
             boards = runCatching { boardsF.get(6, TimeUnit.SECONDS) }.getOrElse { emptyList() },
             stream = runCatching { streamF.get(6, TimeUnit.SECONDS) }.getOrElse { StreamNow(streamConfigured()) },
+            queue = runCatching { queueF.get(6, TimeUnit.SECONDS) }
+                .getOrElse { QueueNow(rfQueue?.configured == true, error = "timed out") },
         )
         cached = status
         return status
@@ -197,13 +201,15 @@ class ShowStatusService(
         )
     }
 
-    /** The viewers sensor's viewers_by_link attribute ([{label, screens}]), or null if it isn't there. */
+    /** The viewers sensor's viewers_by_link attribute ([{label, screens, requests}]), or null if it isn't there.
+     *  Keeps links with screens playing or song requests tonight. */
     private fun viewersByLink(viewers: JsonNode?): List<LinkViewers>? {
         val list = viewers?.path("attributes")?.path("viewers_by_link")?.takeIf { it.isArray } ?: return null
         return list.mapNotNull { n ->
             val label = n.path("label").asText("").ifBlank { null } ?: return@mapNotNull null
             val screens = n.path("screens").takeIf { it.isNumber }?.asInt() ?: return@mapNotNull null
-            LinkViewers(label, screens).takeIf { screens > 0 }
+            val requests = n.path("requests").takeIf { it.isNumber }?.asInt() ?: 0
+            LinkViewers(label, screens, requests).takeIf { screens > 0 || requests > 0 }
         }
     }
 

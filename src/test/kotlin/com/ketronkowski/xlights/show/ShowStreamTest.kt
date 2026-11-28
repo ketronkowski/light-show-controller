@@ -55,6 +55,18 @@ class ShowStreamTest {
     }
 
     @Test
+    fun `keeps links with requests tonight even with no screens playing`(@TempDir dir: Path) {
+        val ha = mock<HomeAssistantClient> {
+            on { configured } doReturn true
+            on { state("sensor.live_stream_viewers") } doReturn json.readTree(
+                """{"state":"2","attributes":{"viewers_by_link":[{"label":"Smith","screens":2,"requests":3},
+                   {"label":"Jones","screens":0,"requests":1},{"label":"Gone","screens":0,"requests":0}]}}""")
+        }
+        val s = ShowStatusService(mock(), ha, props, mock(), json, dir.toString()).streamNow()
+        assertEquals(listOf(LinkViewers("Smith", 2, 3), LinkViewers("Jones", 0, 1)), s.byLink)
+    }
+
+    @Test
     fun `an empty viewers_by_link means nobody on a link`(@TempDir dir: Path) {
         val ha = mock<HomeAssistantClient> {
             on { configured } doReturn true
